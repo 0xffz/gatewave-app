@@ -96,8 +96,6 @@ pub fn apply_style(ctx: &Context) {
     visuals.selection.bg_fill = white(0.25);
     visuals.selection.stroke = Stroke::new(1.0, FG);
     visuals.text_cursor.stroke = Stroke::new(1.0, FG);
-    // Panel separator lines.
-    visuals.widgets.noninteractive.bg_stroke = Stroke::new(1.0, white(0.08));
     // Scrollbar handle colours.
     visuals.widgets.inactive.bg_fill = white(0.12);
     visuals.widgets.hovered.bg_fill = white(0.2);

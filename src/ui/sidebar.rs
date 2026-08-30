@@ -130,6 +130,6 @@ pub fn draw(ui: &mut Ui, app: &App, out: &mut Vec<Action>) {
             text_ls(ui, "BALANCES", sans(10.5), white(0.35), 1.47);
         });
         ui.add_space(14.0);
-        hline(ui, white(0.08));
+        hline(ui, separator_color(ui));
     });
 }

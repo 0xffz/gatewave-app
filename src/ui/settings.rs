@@ -64,7 +64,7 @@ fn behaviour(ui: &mut Ui, app: &App, out: &mut Vec<Action>) {
                     out.push(Action::TogglePref(*key));
                 }
                 if i < last {
-                    hline(ui, white(0.07));
+                    hline(ui, separator_color(ui));
                 }
             }
         });

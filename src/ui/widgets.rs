@@ -132,6 +132,11 @@ pub fn progress_bar(ui: &mut Ui, frac: f32) {
     }
 }
 
+/// egui's separator colour (the same stroke that draws the panel borders).
+pub fn separator_color(ui: &Ui) -> Color32 {
+    ui.visuals().widgets.noninteractive.bg_stroke.color
+}
+
 pub fn hline(ui: &mut Ui, color: Color32) {
     let (rect, _) = ui.allocate_exact_size(vec2(ui.available_width(), 1.0), Sense::hover());
     ui.painter()
