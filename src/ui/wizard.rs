@@ -307,7 +307,10 @@ fn step_countries(ui: &mut Ui, app: &App, out: &mut Vec<Action>) {
                 mono_semi(11.0),
                 op(badge_fg, opacity),
             );
-            text(ui, &c.name, sans_med(14.0), op(fg, opacity));
+            // Keep price and dial code intact; the country name gives way when space is short.
+            let reserved = 56.0 + 12.0 + if c.dial.is_some() { 48.0 } else { 0.0 };
+            let name_w = (ui.available_width() - reserved).max(40.0);
+            text_trunc(ui, &c.name, sans_med(14.0), op(fg, opacity), name_w);
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                 ui.allocate_ui_with_layout(
                     vec2(56.0, ui.available_height()),

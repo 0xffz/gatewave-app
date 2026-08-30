@@ -46,31 +46,8 @@ pub fn draw(ui: &mut Ui, app: &App, out: &mut Vec<Action>) {
                             ui.set_width(ui.available_width());
                             ui.horizontal(|ui| {
                                 ui.spacing_mut().item_spacing = vec2(12.0, 0.0);
-                                badge(
-                                    ui,
-                                    &f.country_code,
-                                    vec2(32.0, 24.0),
-                                    5,
-                                    white(0.08),
-                                    Color32::TRANSPARENT,
-                                    mono_semi(11.0),
-                                    FG,
-                                );
-                                ui.vertical(|ui| {
-                                    ui.spacing_mut().item_spacing = vec2(0.0, 2.0);
-                                    text(
-                                        ui,
-                                        format!("{} · {}", f.service_name, f.country_name),
-                                        sans_med(14.0),
-                                        FG,
-                                    );
-                                    text(
-                                        ui,
-                                        format!("via {} · {}", f.provider.name(), f.operator),
-                                        sans(11.5),
-                                        white(0.45),
-                                    );
-                                });
+                                // Lay the fixed-width right side out first so the text block
+                                // can truncate to whatever width is left.
                                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                                     ui.spacing_mut().item_spacing = vec2(12.0, 0.0);
                                     let star = Btn::new("★", sans(15.0))
@@ -89,6 +66,41 @@ pub fn draw(ui: &mut Ui, app: &App, out: &mut Vec<Action>) {
                                         out.push(Action::RequestFav(i));
                                     }
                                     text(ui, fmt_usd4(f.price), mono(13.0), FG);
+                                    ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
+                                        ui.spacing_mut().item_spacing = vec2(12.0, 0.0);
+                                        badge(
+                                            ui,
+                                            &f.country_code,
+                                            vec2(32.0, 24.0),
+                                            5,
+                                            white(0.08),
+                                            Color32::TRANSPARENT,
+                                            mono_semi(11.0),
+                                            FG,
+                                        );
+                                        let w = ui.available_width().max(40.0);
+                                        ui.vertical(|ui| {
+                                            ui.spacing_mut().item_spacing = vec2(0.0, 2.0);
+                                            text_trunc(
+                                                ui,
+                                                format!("{} · {}", f.service_name, f.country_name),
+                                                sans_med(14.0),
+                                                FG,
+                                                w,
+                                            );
+                                            text_trunc(
+                                                ui,
+                                                format!(
+                                                    "via {} · {}",
+                                                    f.provider.name(),
+                                                    f.operator
+                                                ),
+                                                sans(11.5),
+                                                white(0.45),
+                                                w,
+                                            );
+                                        });
+                                    });
                                 });
                             });
                         });
