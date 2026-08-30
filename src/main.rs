@@ -27,6 +27,7 @@ fn main() -> eframe::Result {
         "Number Desk",
         options,
         Box::new(|cc| {
+            theme::install_fonts(&cc.egui_ctx);
             theme::apply_style(&cc.egui_ctx);
             Ok(Box::new(App::new(cc)))
         }),
@@ -84,6 +85,7 @@ mod tests {
 
     fn headless() -> egui::Context {
         let ctx = egui::Context::default();
+        theme::install_fonts(&ctx);
         theme::apply_style(&ctx);
         ctx
     }
