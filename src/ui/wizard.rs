@@ -393,9 +393,14 @@ fn step_offers(ui: &mut Ui, app: &App, out: &mut Vec<Action>) {
                     );
                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                         ui.spacing_mut().item_spacing = vec2(12.0, 0.0);
-                        let star = Btn::new(if is_fav { "★" } else { "☆" }, sans(SANS_ROW))
+                        let star = IconBtn::new(Icon::Star { filled: is_fav })
                             .fg(if selected { black(0.6) } else { white(0.5) })
-                            .pad(4.0, 2.0)
+                            .hover_fg(if selected { BG } else { FG })
+                            .tooltip(if is_fav {
+                                "Remove from favorites"
+                            } else {
+                                "Add to favorites"
+                            })
                             .show(ui)
                             .clicked();
                         text(

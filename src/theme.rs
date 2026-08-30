@@ -87,8 +87,6 @@ pub const SANS_BODY_LG: f32 = 15.5;
 pub const SANS_ROW: f32 = 16.0;
 /// 14.5 — provider names.
 pub const SANS_ROW_LG: f32 = 16.5;
-/// 15 — the favorites star.
-pub const SANS_ICON: f32 = 17.0;
 /// 22 — page titles.
 pub const SANS_TITLE: f32 = 24.0;
 

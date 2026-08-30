@@ -5,7 +5,7 @@ use std::hash::Hash;
 
 use egui::{
     Align, Align2, Color32, CornerRadius, CursorIcon, FontId, Frame, Id, Label, Layout, Margin,
-    Mesh, Painter, Rect, Response, RichText, Sense, Shape, Stroke, StrokeKind, TextEdit,
+    Mesh, Painter, Pos2, Rect, Response, RichText, Sense, Shape, Stroke, StrokeKind, TextEdit,
     TextWrapMode, Ui, UiBuilder, Vec2, pos2, vec2,
 };
 
@@ -419,6 +419,8 @@ pub enum Icon {
     Check,
     /// A small ×.
     Close,
+    /// Five-point star, filled (favorite) or outlined.
+    Star { filled: bool },
 }
 
 /// Small bordered button showing a painted icon (same footprint as the design's `Copy` chip).
@@ -430,6 +432,7 @@ pub struct IconBtn {
     hover_border: Option<Color32>,
     opacity: f32,
     tooltip: Option<String>,
+    height: f32,
 }
 
 impl IconBtn {
@@ -442,6 +445,7 @@ impl IconBtn {
             hover_border: None,
             opacity: 1.0,
             tooltip: None,
+            height: 20.0,
         }
     }
     pub fn fg(mut self, c: Color32) -> Self {
@@ -450,6 +454,12 @@ impl IconBtn {
     }
     pub fn border(mut self, c: Color32) -> Self {
         self.border = c;
+        self
+    }
+    /// Hit area / row height (the icon stays centred). Match the tallest sibling when the
+    /// button is the first item of a horizontal row, so it is centred on the final row height.
+    pub fn height(mut self, h: f32) -> Self {
+        self.height = h.max(20.0);
         self
     }
     pub fn hover_fg(mut self, c: Color32) -> Self {
@@ -470,7 +480,9 @@ impl IconBtn {
     }
 
     pub fn show(self, ui: &mut Ui) -> Response {
-        let (rect, resp) = ui.allocate_exact_size(vec2(26.0, 20.0), Sense::click());
+        let (hit, resp) = ui.allocate_exact_size(vec2(26.0, self.height), Sense::click());
+        // The painted chip keeps its 26×20 footprint inside the (possibly taller) hit area.
+        let rect = Rect::from_center_size(hit.center(), vec2(26.0, 20.0));
         let hovered = resp.hovered();
         let t = ui
             .ctx()
@@ -526,6 +538,32 @@ impl IconBtn {
                 Icon::Close => {
                     p.line_segment([c + vec2(-3.5, -3.5), c + vec2(3.5, 3.5)], stroke);
                     p.line_segment([c + vec2(-3.5, 3.5), c + vec2(3.5, -3.5)], stroke);
+                }
+                Icon::Star { filled } => {
+                    // Ten points alternating outer/inner radius, first point straight up.
+                    let (outer, inner) = (7.0, 3.0);
+                    let pts: Vec<Pos2> = (0..10)
+                        .map(|i| {
+                            let r = if i % 2 == 0 { outer } else { inner };
+                            let a = -std::f32::consts::FRAC_PI_2
+                                + i as f32 * std::f32::consts::PI / 5.0;
+                            c + vec2(a.cos(), a.sin()) * r
+                        })
+                        .collect();
+                    if filled {
+                        // The star is star-shaped around its centre, so a fan from the centre fills it.
+                        let mut mesh = Mesh::default();
+                        mesh.colored_vertex(c, fg);
+                        for pt in &pts {
+                            mesh.colored_vertex(*pt, fg);
+                        }
+                        for i in 0..10u32 {
+                            mesh.add_triangle(0, 1 + i, 1 + (i + 1) % 10);
+                        }
+                        p.add(Shape::mesh(mesh));
+                    }
+                    // Stroked outline: gives the fill anti-aliased edges, or draws the hollow star.
+                    p.add(Shape::closed_line(pts, Stroke::new(1.2, fg)));
                 }
             }
         }

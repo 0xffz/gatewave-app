@@ -277,6 +277,14 @@ impl App {
         if !seeded.is_empty() {
             app.persist();
         }
+        #[allow(unused_mut)]
+        let mut app = app;
+        #[cfg(debug_assertions)]
+        match std::env::var("NUMBER_DESK_DEBUG_SCREEN").as_deref() {
+            Ok("favorites") => app.screen = Screen::Favorites,
+            Ok("settings") => app.screen = Screen::Settings,
+            _ => {}
+        }
         app
     }
 

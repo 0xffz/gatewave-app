@@ -50,10 +50,14 @@ pub fn draw(ui: &mut Ui, app: &App, out: &mut Vec<Action>) {
                                 // can truncate to whatever width is left.
                                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                                     ui.spacing_mut().item_spacing = vec2(12.0, 0.0);
-                                    let star = Btn::new("★", sans(SANS_ICON))
+                                    // First item of the row: give it the Request button's height
+                                    // so it is centred on the final row height.
+                                    let btn_h = line_h(ui, &sans_semi(SANS_LABEL)) + 18.0;
+                                    let star = IconBtn::new(Icon::Star { filled: true })
                                         .fg(white(0.5))
                                         .hover_fg(FG)
-                                        .pad(4.0, 2.0)
+                                        .height(btn_h)
+                                        .tooltip("Remove from favorites")
                                         .show(ui);
                                     if star.clicked() {
                                         out.push(Action::RemoveFav(i));
