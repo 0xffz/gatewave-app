@@ -185,6 +185,44 @@ pub fn vgradient(painter: &Painter, rect: Rect, top: Color32, bottom: Color32) {
 }
 
 // ---------------------------------------------------------------------------
+// Hover helpers
+
+/// Hover transition length, seconds.
+pub const HOVER_ANIM: f32 = 0.12;
+
+/// Perceived lightness (0 = black, 1 = white) of a premultiplied colour; fully transparent
+/// colours count as dark (they sit on the dark app background).
+fn lightness(c: Color32) -> f32 {
+    let [r, g, b, a] = c.to_array();
+    if a == 0 {
+        return 0.0;
+    }
+    (0.299 * r as f32 + 0.587 * g as f32 + 0.114 * b as f32) / a as f32
+}
+
+/// Default hover emphasis: light colours move towards white, dark ones towards black.
+pub fn emphasize(c: Color32, amount: f32) -> Color32 {
+    if c.a() == 0 {
+        return c;
+    }
+    let target = if lightness(c) >= 0.5 {
+        Color32::WHITE
+    } else {
+        Color32::BLACK
+    };
+    lerp(c, target, amount)
+}
+
+/// Faint surface highlight suited to the text colour drawn on it.
+fn hover_wash(fg: Color32) -> Color32 {
+    if lightness(fg) >= 0.5 {
+        white(0.06)
+    } else {
+        black(0.06)
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Buttons
 
 pub struct Btn {
@@ -304,18 +342,40 @@ impl Btn {
         };
         let (rect, mut resp) = ui.allocate_exact_size(vec2(w, h), sense);
         let hovered = !self.disabled && resp.hovered();
-        let (fg, bg, border) = if hovered {
-            (
-                self.hover_fg.unwrap_or(self.fg),
-                self.hover_bg.unwrap_or(self.bg),
-                self.hover_border.unwrap_or(self.border),
-            )
+        // Hover state fades in/out; explicit hover colours win, otherwise text brightens, a
+        // transparent background gets a faint wash and borders move towards the text colour.
+        let t = if self.disabled {
+            0.0
         } else {
-            (self.fg, self.bg, self.border)
+            ui.ctx()
+                .animate_bool_with_time(resp.id, hovered, HOVER_ANIM)
         };
+        let hover_fg = self.hover_fg.unwrap_or_else(|| emphasize(self.fg, 0.6));
+        let hover_bg = self.hover_bg.unwrap_or_else(|| {
+            if self.bg.a() == 0 {
+                hover_wash(self.fg)
+            } else {
+                emphasize(self.bg, 0.5)
+            }
+        });
+        let hover_border = self.hover_border.unwrap_or_else(|| {
+            if self.border.a() == 0 {
+                Color32::TRANSPARENT
+            } else {
+                lerp(self.border, self.fg, 0.5)
+            }
+        });
+        let mut fg = lerp(self.fg, hover_fg, t);
+        let mut bg = lerp(self.bg, hover_bg, t);
+        let border = lerp(self.border, hover_border, t);
+        if hovered && resp.is_pointer_button_down_on() {
+            // Press: dip halfway back towards the resting colours.
+            fg = lerp(fg, self.fg, 0.5);
+            bg = lerp(bg, self.bg, 0.5);
+        }
         if ui.is_rect_visible(rect) {
             let p = ui.painter();
-            let stroke = if border == Color32::TRANSPARENT {
+            let stroke = if border.a() == 0 {
                 Stroke::NONE
             } else {
                 Stroke::new(1.0, op(border, self.opacity))
@@ -407,22 +467,29 @@ impl IconBtn {
     pub fn show(self, ui: &mut Ui) -> Response {
         let (rect, resp) = ui.allocate_exact_size(vec2(26.0, 20.0), Sense::click());
         let hovered = resp.hovered();
-        let fg = op(
-            if hovered {
-                self.hover_fg.unwrap_or(self.fg)
+        let t = ui
+            .ctx()
+            .animate_bool_with_time(resp.id, hovered, HOVER_ANIM);
+        let hover_fg = self.hover_fg.unwrap_or_else(|| emphasize(self.fg, 0.6));
+        let hover_border = self.hover_border.unwrap_or_else(|| {
+            if self.border.a() == 0 {
+                Color32::TRANSPARENT
             } else {
-                self.fg
-            },
-            self.opacity,
-        );
-        let border = if hovered {
-            self.hover_border.unwrap_or(self.border)
-        } else {
-            self.border
-        };
+                lerp(self.border, self.fg, 0.5)
+            }
+        });
+        let mut fg = op(lerp(self.fg, hover_fg, t), self.opacity);
+        if hovered && resp.is_pointer_button_down_on() {
+            fg = lerp(fg, op(self.fg, self.opacity), 0.5);
+        }
+        let border = lerp(self.border, hover_border, t);
+        let wash = lerp(Color32::TRANSPARENT, hover_wash(self.fg), t);
         if ui.is_rect_visible(rect) {
             let p = ui.painter();
-            if border != Color32::TRANSPARENT {
+            if wash.a() > 0 {
+                p.rect_filled(rect, CornerRadius::same(5), op(wash, self.opacity));
+            }
+            if border.a() != 0 {
                 p.rect_stroke(
                     rect,
                     CornerRadius::same(5),
@@ -555,19 +622,37 @@ pub fn clickable_row<R>(
         Sense::hover()
     };
     let (rect, mut resp) = ui.allocate_exact_size(vec2(w, height), sense);
+    let (mut fill, mut border) = (style.fill, style.border);
     if style.clickable {
         resp = resp.on_hover_cursor(CursorIcon::PointingHand);
+        // Rows lift slightly on hover: dark rows get a faint wash and a brighter border, light
+        // (selected) rows go a touch whiter.
+        let t = ui
+            .ctx()
+            .animate_bool_with_time(resp.id, resp.hovered(), HOVER_ANIM);
+        let (hover_fill, hover_border) = if lightness(style.fill) >= 0.5 {
+            (lerp(style.fill, Color32::WHITE, 0.6), style.border)
+        } else {
+            let b = if style.border.a() == 0 {
+                style.border
+            } else {
+                lerp(style.border, white(0.28), 1.0)
+            };
+            (lerp(style.fill, Color32::WHITE, 0.04), b)
+        };
+        fill = lerp(style.fill, hover_fill, t);
+        border = lerp(style.border, hover_border, t);
     }
     if ui.is_rect_visible(rect) {
-        let stroke = if style.border == Color32::TRANSPARENT {
+        let stroke = if border.a() == 0 {
             Stroke::NONE
         } else {
-            Stroke::new(1.0, op(style.border, style.opacity))
+            Stroke::new(1.0, op(border, style.opacity))
         };
         ui.painter().rect(
             rect,
             CornerRadius::same(style.radius),
-            op(style.fill, style.opacity),
+            op(fill, style.opacity),
             stroke,
             StrokeKind::Inside,
         );
