@@ -45,24 +45,8 @@ impl Config {
     }
 
     /// Loads the config, falling back to defaults when the file is missing or unreadable.
-    /// A config written by the app under its previous name (`number-desk`) is picked up when
-    /// the new location is still empty; the next save moves it over.
     pub fn load() -> Self {
-        let path = Self::path();
-        if !path.exists()
-            && let Some(legacy) = Self::legacy_path(&path)
-            && legacy.exists()
-        {
-            return Self::load_from(&legacy);
-        }
-        Self::load_from(&path)
-    }
-
-    /// `…/gatewave/config.json` → `…/number-desk/config.json`; `None` for explicit paths.
-    fn legacy_path(path: &Path) -> Option<PathBuf> {
-        let dir = path.parent()?;
-        (dir.file_name()? == "gatewave")
-            .then(|| dir.with_file_name("number-desk").join("config.json"))
+        Self::load_from(&Self::path())
     }
 
     pub fn load_from(path: &Path) -> Self {
@@ -164,29 +148,6 @@ mod tests {
         fs::write(&path, "{ not json").unwrap();
         assert_eq!(Config::load_from(&path), Config::default());
         let _ = fs::remove_dir_all(&dir);
-    }
-
-    #[test]
-    fn legacy_config_dir_is_read_until_the_new_one_exists() {
-        let base = std::env::temp_dir().join(format!("gatewave-legacy-{}", std::process::id()));
-        let new = base.join("gatewave").join("config.json");
-        let old = base.join("number-desk").join("config.json");
-        assert_eq!(Config::legacy_path(&new), Some(old.clone()));
-        assert_eq!(Config::legacy_path(Path::new("/tmp/custom.json")), None);
-        let cfg = Config {
-            next_number_id: 7,
-            ..Default::default()
-        };
-        cfg.save_to(&old).unwrap();
-        assert!(!new.exists());
-        // Same lookup `load()` does, with the paths spelled out.
-        let loaded = if new.exists() {
-            Config::load_from(&new)
-        } else {
-            Config::load_from(&Config::legacy_path(&new).unwrap())
-        };
-        assert_eq!(loaded, cfg);
-        let _ = fs::remove_dir_all(&base);
     }
 
     #[test]

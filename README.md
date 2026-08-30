@@ -2,7 +2,7 @@
 
 A Rust/[egui](https://github.com/emilk/egui) desktop client for buying SMS-verification numbers from
 Hero SMS, 5SIM, Tiger SMS and SMSBower. The UI follows the Claude Design file in
-[`design/Number Desk.dc.html`](design/Number%20Desk.dc.html); the data comes from the real providers
+[`design/Gatewave.dc.html`](design/Gatewave.dc.html); the data comes from the real providers
 through the workspace crate `sms-activate`.
 
 ```sh
