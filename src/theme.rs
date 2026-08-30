@@ -13,6 +13,8 @@ pub const RIGHT_BG: Color32 = Color32::from_rgb(0x0d, 0x0d, 0x0f);
 pub const CARD_BG: Color32 = Color32::from_rgb(0x12, 0x12, 0x14);
 pub const SUMMARY_BG: Color32 = Color32::from_rgb(0x15, 0x15, 0x17);
 pub const GREEN: Color32 = Color32::from_rgb(0x8a, 0xff, 0xc1);
+/// "Connected" green for light (inverted) surfaces, where the mint `GREEN` washes out.
+pub const GREEN_ON_LIGHT: Color32 = Color32::from_rgb(0x17, 0x9c, 0x63);
 pub const SNACK_ERROR: Color32 = Color32::from_rgb(0xff, 0x5c, 0x5c);
 pub const SNACK_SUCCESS: Color32 = Color32::from_rgb(0x1f, 0xbf, 0x7a);
 pub const RED_HOVER: Color32 = Color32::from_rgb(0xff, 0x7a, 0x7a);

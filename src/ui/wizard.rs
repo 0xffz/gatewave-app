@@ -137,11 +137,14 @@ fn step_providers(ui: &mut Ui, app: &App, out: &mut Vec<Action>) {
         }
         .opacity(opacity);
         let (resp, connect_clicked) = clickable_row(ui, ("provider", kind), row_h, &style, |ui| {
-            dot(
-                ui,
-                7.0,
-                op(if p.connected { GREEN } else { white(0.2) }, opacity),
-            );
+            // The mint green is tuned for dark rows; the selected row is light, so use the
+            // darker "connected" green there.
+            let dot_color = match (p.connected, selected) {
+                (true, true) => GREEN_ON_LIGHT,
+                (true, false) => GREEN,
+                (false, _) => white(0.2),
+            };
+            dot(ui, 7.0, op(dot_color, opacity));
             text(ui, p.name(), sans_med(14.5), op(fg, opacity));
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                 if p.connected {
