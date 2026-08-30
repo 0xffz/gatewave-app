@@ -52,12 +52,12 @@ pub fn lerp(a: Color32, b: Color32, t: f32) -> Color32 {
 // ---------------------------------------------------------------------------
 // Runtime text scale (adjusted from the debug panel; 1.0 in normal use)
 
-/// Default text multiplier over the design sizes (the design was drawn for a denser web layout).
-pub const DEFAULT_FONT_SCALE: f32 = 1.25;
+/// Default text multiplier over the design sizes.
+pub const DEFAULT_FONT_SCALE: f32 = 1.0;
 
 static FONT_SCALE_BITS: AtomicU32 = AtomicU32::new(DEFAULT_FONT_SCALE.to_bits());
 
-/// Multiplier applied to every design font size (see [`DEFAULT_FONT_SCALE`]).
+/// Multiplier applied to every text size (adjustable from the debug panel).
 pub fn font_scale() -> f32 {
     f32::from_bits(FONT_SCALE_BITS.load(Ordering::Relaxed))
 }
@@ -67,10 +67,61 @@ pub fn set_font_scale(scale: f32) {
     FONT_SCALE_BITS.store(scale.clamp(0.5, 2.5).to_bits(), Ordering::Relaxed);
 }
 
+// ---------------------------------------------------------------------------
+// Text sizes. The design's CSS sizes read small in a native window, so every value is the
+// design size + 2 px. Proportional (`SANS_*`) and monospace (`MONO_*`) scales are kept apart.
+
+/// 10.5 — section eyebrows (STEPS, BALANCES, ACTIVE NUMBERS).
+pub const SANS_EYEBROW: f32 = 12.5;
+/// 11.5 — hints, meta lines, small buttons (Connect, Cancel).
+pub const SANS_SMALL: f32 = 13.5;
+/// 12 — secondary text (Disconnect, "Waiting for SMS", expired notes).
+pub const SANS_CAPTION: f32 = 14.0;
+/// 12.5 — balances, empty-state boxes, the Request button in favorites.
+pub const SANS_LABEL: f32 = 14.5;
+/// 13 — sidebar step labels, paragraphs, offer group names.
+pub const SANS_BODY: f32 = 15.0;
+/// 13.5 — navigation, inputs, preference labels, snackbar, primary buttons.
+pub const SANS_BODY_LG: f32 = 15.5;
+/// 14 — list rows (services, countries, favorites) and the offer star.
+pub const SANS_ROW: f32 = 16.0;
+/// 14.5 — provider names.
+pub const SANS_ROW_LG: f32 = 16.5;
+/// 15 — the favorites star.
+pub const SANS_ICON: f32 = 17.0;
+/// 22 — page titles.
+pub const SANS_TITLE: f32 = 24.0;
+
+/// 11 — badges, step numbers, "STEP 1 / 4", available counts.
+pub const MONO_XS: f32 = 13.0;
+/// 11.5 — step values, prices on number cards.
+pub const MONO_SM: f32 = 13.5;
+/// 12 — balances, dial codes, masked API keys, counters.
+pub const MONO_MD: f32 = 14.0;
+/// 12.5 — provider balance in rows, countdown, API key input.
+pub const MONO_LG: f32 = 14.5;
+/// 13 — prices, badge letters.
+pub const MONO_XL: f32 = 15.0;
+/// 13.5 — offer tier prices.
+pub const MONO_PRICE: f32 = 15.5;
+/// 14.5 — phone numbers.
+pub const MONO_PHONE: f32 = 16.5;
+/// 15 — the summary-bar total.
+pub const MONO_TOTAL: f32 = 17.0;
+/// 16 — the N/D logo.
+pub const MONO_LOGO: f32 = 18.0;
+/// 20 — the received code.
+pub const MONO_CODE: f32 = 22.0;
+
+/// The size a design constant renders at.
+pub fn text_size(size: f32) -> f32 {
+    (size * font_scale()).max(1.0)
+}
+
 /// Proportional text — egui's default (Ubuntu-Light). The design's weight variants collapse onto
 /// the single bundled weight.
 pub fn sans(size: f32) -> FontId {
-    FontId::new(size * font_scale(), FontFamily::Proportional)
+    FontId::new(text_size(size), FontFamily::Proportional)
 }
 pub fn sans_med(size: f32) -> FontId {
     sans(size)
@@ -80,7 +131,7 @@ pub fn sans_semi(size: f32) -> FontId {
 }
 /// Monospace text — egui's default (Hack).
 pub fn mono(size: f32) -> FontId {
-    FontId::new(size * font_scale(), FontFamily::Monospace)
+    FontId::new(text_size(size), FontFamily::Monospace)
 }
 pub fn mono_semi(size: f32) -> FontId {
     mono(size)

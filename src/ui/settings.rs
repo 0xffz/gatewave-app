@@ -31,9 +31,9 @@ pub fn draw(ui: &mut Ui, app: &App, out: &mut Vec<Action>) {
 }
 
 fn behaviour(ui: &mut Ui, app: &App, out: &mut Vec<Action>) {
-    text_ls(ui, "BEHAVIOR", sans(10.5), white(0.35), 1.47);
+    text_ls(ui, "BEHAVIOR", sans(SANS_EYEBROW), white(0.35), 1.47);
     ui.add_space(10.0);
-    let row_h = 26.0 + line_h(ui, &sans_med(13.5)) + 2.0 + line_h(ui, &sans(11.5));
+    let row_h = 26.0 + line_h(ui, &sans_med(SANS_BODY_LG)) + 2.0 + line_h(ui, &sans(SANS_SMALL));
     Frame::new()
         .fill(ROW_BG)
         .stroke(Stroke::new(1.0, white(0.1)))
@@ -53,8 +53,8 @@ fn behaviour(ui: &mut Ui, app: &App, out: &mut Vec<Action>) {
                 let (resp, _) = clickable_row(ui, ("pref", i), row_h, &style, |ui| {
                     ui.vertical(|ui| {
                         ui.spacing_mut().item_spacing = vec2(0.0, 2.0);
-                        text(ui, *label, sans_med(13.5), FG);
-                        text(ui, *hint, sans(11.5), white(0.45));
+                        text(ui, *label, sans_med(SANS_BODY_LG), FG);
+                        text(ui, *hint, sans(SANS_SMALL), white(0.45));
                     });
                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                         toggle_visual(ui, on, Id::new(("toggle", i)));
@@ -71,9 +71,9 @@ fn behaviour(ui: &mut Ui, app: &App, out: &mut Vec<Action>) {
 }
 
 fn providers(ui: &mut Ui, app: &App, out: &mut Vec<Action>) {
-    text_ls(ui, "PROVIDERS", sans(10.5), white(0.35), 1.47);
+    text_ls(ui, "PROVIDERS", sans(SANS_EYEBROW), white(0.35), 1.47);
     ui.add_space(10.0);
-    let key_font = mono(12.5);
+    let key_font = mono(MONO_LG);
     let input_h = input_height(ui, &key_font, 10.0);
     for p in &app.providers {
         let kind = p.kind;
@@ -93,11 +93,11 @@ fn providers(ui: &mut Ui, app: &App, out: &mut Vec<Action>) {
                 ui.horizontal(|ui| {
                     ui.spacing_mut().item_spacing = vec2(10.0, 0.0);
                     dot(ui, 7.0, if p.connected { GREEN } else { white(0.2) });
-                    text(ui, p.name(), sans_semi(14.5), FG);
+                    text(ui, p.name(), sans_semi(SANS_ROW_LG), FG);
                     if p.connected {
                         ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                             ui.spacing_mut().item_spacing = vec2(10.0, 0.0);
-                            let r = Btn::new("Disconnect", sans(12.0))
+                            let r = Btn::new("Disconnect", sans(SANS_CAPTION))
                                 .fg(white(0.4))
                                 .hover_fg(RED_HOVER)
                                 .pad(2.0, 2.0)
@@ -106,7 +106,7 @@ fn providers(ui: &mut Ui, app: &App, out: &mut Vec<Action>) {
                                 out.push(Action::Disconnect(kind));
                             }
                             if let Some(balance) = p.balance {
-                                text(ui, fmt_usd(balance), mono(12.5), op(FG, 0.75));
+                                text(ui, fmt_usd(balance), mono(MONO_LG), op(FG, 0.75));
                             }
                         });
                     }
@@ -116,7 +116,7 @@ fn providers(ui: &mut Ui, app: &App, out: &mut Vec<Action>) {
                     text(
                         ui,
                         format!("API key · {}", masked_key(p.key.as_deref().unwrap_or(""))),
-                        mono(12.0),
+                        mono(MONO_MD),
                         white(0.4),
                     );
                 } else if p.connecting {

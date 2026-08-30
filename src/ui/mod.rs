@@ -78,12 +78,12 @@ pub fn content_column(ui: &mut Ui, f: impl FnOnce(&mut egui::Ui)) {
 /// "FAVORITES" / "SETTINGS" eyebrow + h1 + optional paragraph.
 pub fn page_header(ui: &mut Ui, eyebrow: &str, title: &str, para: Option<&str>) {
     ui.add_space(30.0);
-    widgets::text_ls(ui, eyebrow, mono(11.0), white(0.4), 1.32);
+    widgets::text_ls(ui, eyebrow, mono(MONO_XS), white(0.4), 1.32);
     ui.add_space(6.0);
-    widgets::text_ls(ui, title, sans_semi(22.0), FG, -0.22);
+    widgets::text_ls(ui, title, sans_semi(SANS_TITLE), FG, -0.22);
     if let Some(p) = para {
         ui.add_space(6.0);
-        widgets::text_wrap(ui, p, sans(13.0), white(0.45));
+        widgets::text_wrap(ui, p, sans(SANS_BODY), white(0.45));
         ui.add_space(24.0);
     }
 }

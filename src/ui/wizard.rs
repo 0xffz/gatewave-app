@@ -46,15 +46,15 @@ fn header(ui: &mut Ui, app: &App, out: &mut Vec<Action>) {
     text_ls(
         ui,
         format!("STEP {} / 4", app.step),
-        mono(11.0),
+        mono(MONO_XS),
         white(0.4),
         1.32,
     );
     ui.add_space(6.0);
-    text_ls(ui, app.step_title(), sans_semi(22.0), FG, -0.22);
+    text_ls(ui, app.step_title(), sans_semi(SANS_TITLE), FG, -0.22);
     ui.add_space(16.0);
 
-    let font = sans(13.5);
+    let font = sans(SANS_BODY_LG);
     let input_h = input_height(ui, &font, 11.0);
     ui.horizontal(|ui| {
         ui.spacing_mut().item_spacing = vec2(8.0, 0.0);
@@ -66,7 +66,7 @@ fn header(ui: &mut Ui, app: &App, out: &mut Vec<Action>) {
                     Some(SortDir::Asc) => "↑",
                     None => "↕",
                 };
-                let r = Btn::new(format!("Price {arrow}"), mono(11.5))
+                let r = Btn::new(format!("Price {arrow}"), mono(MONO_SM))
                     .fg(white(0.6))
                     .border(white(0.14))
                     .hover_fg(FG)
@@ -123,8 +123,8 @@ fn empty_hint(ui: &mut Ui, lines: &[&str]) {
 // Step 1
 
 fn step_providers(ui: &mut Ui, app: &App, out: &mut Vec<Action>) {
-    let btn_h = line_h(ui, &sans(11.5)) + 10.0;
-    let row_h = 26.0 + line_h(ui, &sans_med(14.5)).max(btn_h);
+    let btn_h = line_h(ui, &sans(SANS_SMALL)) + 10.0;
+    let row_h = 26.0 + line_h(ui, &sans_med(SANS_ROW_LG)).max(btn_h);
     for p in app.provider_rows() {
         let kind = p.kind;
         let selected = app.provider == Some(kind);
@@ -145,18 +145,18 @@ fn step_providers(ui: &mut Ui, app: &App, out: &mut Vec<Action>) {
                 (false, _) => white(0.2),
             };
             dot(ui, 7.0, op(dot_color, opacity));
-            text(ui, p.name(), sans_med(14.5), op(fg, opacity));
+            text(ui, p.name(), sans_med(SANS_ROW_LG), op(fg, opacity));
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                 if p.connected {
                     if let Some(balance) = p.balance {
-                        text(ui, fmt_usd(balance), mono(12.5), op(fg, 0.75));
+                        text(ui, fmt_usd(balance), mono(MONO_LG), op(fg, 0.75));
                     }
                     false
                 } else if p.connecting {
-                    text(ui, "Connecting…", sans(11.5), op(white(0.6), opacity));
+                    text(ui, "Connecting…", sans(SANS_SMALL), op(white(0.6), opacity));
                     false
                 } else {
-                    Btn::new("Connect ›", sans(11.5))
+                    Btn::new("Connect ›", sans(SANS_SMALL))
                         .fg(white(0.6))
                         .border(white(0.2))
                         .hover_fg(FG)
@@ -239,14 +239,14 @@ fn step_services(ui: &mut Ui, app: &App, out: &mut Vec<Action>) {
                             7,
                             fill,
                             Color32::TRANSPARENT,
-                            mono_semi(13.0),
+                            mono_semi(MONO_XL),
                             fg,
                         );
                         let w = ui.available_width();
                         text_trunc(
                             ui,
                             &s.name,
-                            sans_med(14.0),
+                            sans_med(SANS_ROW),
                             if selected { BG } else { FG },
                             w,
                         );
@@ -276,7 +276,7 @@ fn step_countries(ui: &mut Ui, app: &App, out: &mut Vec<Action>) {
         );
         return;
     }
-    let row_h = 24.0 + line_h(ui, &sans_med(14.0)).max(24.0);
+    let row_h = 24.0 + line_h(ui, &sans_med(SANS_ROW)).max(24.0);
     for c in rows {
         if !row_visible(ui, row_h) {
             ui.allocate_space(vec2(ui.available_width(), row_h));
@@ -307,26 +307,26 @@ fn step_countries(ui: &mut Ui, app: &App, out: &mut Vec<Action>) {
                 5,
                 op(fill, opacity),
                 Color32::TRANSPARENT,
-                mono_semi(11.0),
+                mono_semi(MONO_XS),
                 op(badge_fg, opacity),
             );
             // Keep price and dial code intact; the country name gives way when space is short.
             let reserved = 56.0 + 12.0 + if c.dial.is_some() { 48.0 } else { 0.0 };
             let name_w = (ui.available_width() - reserved).max(40.0);
-            text_trunc(ui, &c.name, sans_med(14.0), op(fg, opacity), name_w);
+            text_trunc(ui, &c.name, sans_med(SANS_ROW), op(fg, opacity), name_w);
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                 ui.allocate_ui_with_layout(
                     vec2(56.0, ui.available_height()),
                     Layout::right_to_left(Align::Center),
                     |ui| {
-                        text(ui, fmt_usd(c.price), mono(13.0), op(fg, opacity));
+                        text(ui, fmt_usd(c.price), mono(MONO_XL), op(fg, opacity));
                     },
                 );
                 if let Some(dial) = &c.dial {
                     text(
                         ui,
                         dial,
-                        mono(12.0),
+                        mono(MONO_MD),
                         op(if selected { black(0.45) } else { white(0.45) }, opacity),
                     );
                 }
@@ -352,17 +352,17 @@ fn step_offers(ui: &mut Ui, app: &App, out: &mut Vec<Action>) {
         empty_hint(ui, &["No offers right now.", "Try another country."]);
         return;
     }
-    let tier_h = 22.0 + line_h(ui, &mono_semi(13.5)).max(line_h(ui, &sans(14.0)) + 4.0);
+    let tier_h = 22.0 + line_h(ui, &mono_semi(MONO_PRICE)).max(line_h(ui, &sans(SANS_ROW)) + 4.0);
     for g in groups {
         ui.horizontal(|ui| {
             ui.add_space(2.0);
-            text(ui, &g.name, sans_semi(13.0), FG);
+            text(ui, &g.name, sans_semi(SANS_BODY), FG);
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                 ui.add_space(2.0);
                 text(
                     ui,
                     format!("{} available", fmt_thousands(g.total)),
-                    mono(11.0),
+                    mono(MONO_XS),
                     white(0.4),
                 );
             });
@@ -388,12 +388,12 @@ fn step_offers(ui: &mut Ui, app: &App, out: &mut Vec<Action>) {
                     text(
                         ui,
                         fmt_usd4(t.price),
-                        mono_semi(13.5),
+                        mono_semi(MONO_PRICE),
                         if selected { BG } else { FG },
                     );
                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                         ui.spacing_mut().item_spacing = vec2(12.0, 0.0);
-                        let star = Btn::new(if is_fav { "★" } else { "☆" }, sans(14.0))
+                        let star = Btn::new(if is_fav { "★" } else { "☆" }, sans(SANS_ROW))
                             .fg(if selected { black(0.6) } else { white(0.5) })
                             .pad(4.0, 2.0)
                             .show(ui)
@@ -401,7 +401,7 @@ fn step_offers(ui: &mut Ui, app: &App, out: &mut Vec<Action>) {
                         text(
                             ui,
                             format!("{} numbers", fmt_thousands(t.count)),
-                            sans(11.5),
+                            sans(SANS_SMALL),
                             if selected { black(0.55) } else { white(0.45) },
                         );
                         star
@@ -422,8 +422,8 @@ fn step_offers(ui: &mut Ui, app: &App, out: &mut Vec<Action>) {
 }
 
 fn summary_bar_height(ui: &Ui) -> f32 {
-    let text_block = line_h(ui, &sans_med(13.5)) + 2.0 + line_h(ui, &sans(11.5));
-    let button = line_h(ui, &sans_semi(13.5)) + 22.0;
+    let text_block = line_h(ui, &sans_med(SANS_BODY_LG)) + 2.0 + line_h(ui, &sans(SANS_SMALL));
+    let button = line_h(ui, &sans_semi(SANS_BODY_LG)) + 22.0;
     24.0 + text_block.max(button) + 28.0 + 2.0 + 4.0
 }
 
@@ -458,13 +458,13 @@ fn summary_bar(ui: &mut Ui, app: &App, out: &mut Vec<Action>) {
                     if r.clicked() {
                         out.push(Action::RequestNumber);
                     }
-                    text(ui, price, mono_semi(15.0), FG);
+                    text(ui, price, mono_semi(MONO_TOTAL), FG);
                     ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
                         let w = ui.available_width();
                         ui.vertical(|ui| {
                             ui.spacing_mut().item_spacing = vec2(0.0, 2.0);
-                            text_trunc(ui, line, sans_med(13.5), FG, w);
-                            text(ui, via, sans(11.5), white(0.45));
+                            text_trunc(ui, line, sans_med(SANS_BODY_LG), FG, w);
+                            text(ui, via, sans(SANS_SMALL), white(0.45));
                         });
                     });
                 });

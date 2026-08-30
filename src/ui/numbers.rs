@@ -13,13 +13,13 @@ pub fn draw(ui: &mut Ui, app: &App, out: &mut Vec<Action>) {
     ui.spacing_mut().item_spacing = egui::Vec2::ZERO;
     ui.horizontal(|ui| {
         ui.add_space(4.0);
-        text_ls(ui, "ACTIVE NUMBERS", sans(10.5), white(0.35), 1.47);
+        text_ls(ui, "ACTIVE NUMBERS", sans(SANS_EYEBROW), white(0.35), 1.47);
         ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
             ui.add_space(4.0);
             text(
                 ui,
                 format!("{:02}", app.numbers.len()),
-                mono(12.0),
+                mono(MONO_MD),
                 white(0.5),
             );
         });
@@ -89,7 +89,7 @@ fn card(ui: &mut Ui, app: &App, n: &Number, out: &mut Vec<Action>) {
                         text_ls(
                             ui,
                             phone_display(phone),
-                            mono_semi(14.5),
+                            mono_semi(MONO_PHONE),
                             op(fg, opacity),
                             0.15,
                         );
@@ -103,7 +103,13 @@ fn card(ui: &mut Ui, app: &App, n: &Number, out: &mut Vec<Action>) {
                         }
                     }
                     None => {
-                        text_ls(ui, "+·· ··· ··· ···", mono_semi(14.5), white(0.3), 0.15);
+                        text_ls(
+                            ui,
+                            "+·· ··· ··· ···",
+                            mono_semi(MONO_PHONE),
+                            white(0.3),
+                            0.15,
+                        );
                     }
                 }
                 if n.dismissible() {
@@ -120,14 +126,14 @@ fn card(ui: &mut Ui, app: &App, n: &Number, out: &mut Vec<Action>) {
                 }
             });
             ui.add_space(3.0);
-            text(ui, n.meta_line(), sans(11.5), op(muted, opacity));
+            text(ui, n.meta_line(), sans(SANS_SMALL), op(muted, opacity));
 
             match n.status {
                 NumberStatus::Requesting => {
                     ui.add_space(12.0);
                     skeleton(ui, vec2(ui.available_width() * 0.7, 14.0), 5);
                     ui.add_space(8.0);
-                    text(ui, "Requesting number…", sans(11.5), white(0.4));
+                    text(ui, "Requesting number…", sans(SANS_SMALL), white(0.4));
                 }
                 NumberStatus::Waiting => waiting(ui, app, n, out),
                 NumberStatus::Received => {
@@ -138,7 +144,7 @@ fn card(ui: &mut Ui, app: &App, n: &Number, out: &mut Vec<Action>) {
                             text_ls(
                                 ui,
                                 n.code.as_deref().unwrap_or(""),
-                                mono_semi(20.0),
+                                mono_semi(MONO_CODE),
                                 BG,
                                 1.2,
                             );
@@ -156,7 +162,7 @@ fn card(ui: &mut Ui, app: &App, n: &Number, out: &mut Vec<Action>) {
                                     text_ls(
                                         ui,
                                         n.code.as_deref().unwrap_or(""),
-                                        mono_semi(20.0),
+                                        mono_semi(MONO_CODE),
                                         BG,
                                         1.2,
                                     )
@@ -170,7 +176,7 @@ fn card(ui: &mut Ui, app: &App, n: &Number, out: &mut Vec<Action>) {
                             text(
                                 ui,
                                 fmt_usd(n.price),
-                                mono(11.5),
+                                mono(MONO_SM),
                                 if invert { black(0.4) } else { white(0.4) },
                             );
                         });
@@ -181,7 +187,7 @@ fn card(ui: &mut Ui, app: &App, n: &Number, out: &mut Vec<Action>) {
                     text(
                         ui,
                         "Expired · no SMS received",
-                        sans(12.0),
+                        sans(SANS_CAPTION),
                         op(white(0.4), opacity),
                     );
                 }
@@ -190,7 +196,7 @@ fn card(ui: &mut Ui, app: &App, n: &Number, out: &mut Vec<Action>) {
                     text(
                         ui,
                         format!("Cancelled · {} refunded", fmt_usd(n.price)),
-                        sans(12.0),
+                        sans(SANS_CAPTION),
                         op(white(0.4), opacity),
                     );
                 }
@@ -206,9 +212,14 @@ fn waiting(ui: &mut Ui, app: &App, n: &Number, out: &mut Vec<Action>) {
         let t = ui.input(|i| i.time) as f32;
         let phase = (t % 2.4) / 2.4;
         let blink = 1.0 - 0.75 * (0.5 - 0.5 * (phase * TAU).cos());
-        text(ui, "Waiting for SMS", sans(12.0), white(0.55 * blink));
+        text(
+            ui,
+            "Waiting for SMS",
+            sans(SANS_CAPTION),
+            white(0.55 * blink),
+        );
         ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-            text(ui, mmss(n.time_left(now)), mono(12.5), FG);
+            text(ui, mmss(n.time_left(now)), mono(MONO_LG), FG);
         });
     });
     ui.add_space(8.0);
@@ -227,7 +238,7 @@ fn waiting(ui: &mut Ui, app: &App, n: &Number, out: &mut Vec<Action>) {
             "Cancel & refund".to_string()
         };
         let disabled = n.cancel_pending || cancel_wait.is_some();
-        let r = Btn::new(label, sans(11.5))
+        let r = Btn::new(label, sans(SANS_SMALL))
             .fg(white(0.6))
             .border(white(0.16))
             .pad(11.0, 6.0)
@@ -239,7 +250,7 @@ fn waiting(ui: &mut Ui, app: &App, n: &Number, out: &mut Vec<Action>) {
             out.push(Action::CancelNumber(n.id));
         }
         ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-            text(ui, fmt_usd(n.price), mono(11.5), white(0.4));
+            text(ui, fmt_usd(n.price), mono(MONO_SM), white(0.4));
         });
     });
 }

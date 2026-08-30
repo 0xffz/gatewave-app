@@ -50,7 +50,7 @@ pub fn draw(ui: &mut Ui, app: &App, out: &mut Vec<Action>) {
                                 // can truncate to whatever width is left.
                                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                                     ui.spacing_mut().item_spacing = vec2(12.0, 0.0);
-                                    let star = Btn::new("★", sans(15.0))
+                                    let star = Btn::new("★", sans(SANS_ICON))
                                         .fg(white(0.5))
                                         .hover_fg(FG)
                                         .pad(4.0, 2.0)
@@ -65,7 +65,7 @@ pub fn draw(ui: &mut Ui, app: &App, out: &mut Vec<Action>) {
                                     if req.clicked() {
                                         out.push(Action::RequestFav(i));
                                     }
-                                    text(ui, fmt_usd4(f.price), mono(13.0), FG);
+                                    text(ui, fmt_usd4(f.price), mono(MONO_XL), FG);
                                     ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
                                         ui.spacing_mut().item_spacing = vec2(12.0, 0.0);
                                         badge(
@@ -75,7 +75,7 @@ pub fn draw(ui: &mut Ui, app: &App, out: &mut Vec<Action>) {
                                             5,
                                             white(0.08),
                                             Color32::TRANSPARENT,
-                                            mono_semi(11.0),
+                                            mono_semi(MONO_XS),
                                             FG,
                                         );
                                         let w = ui.available_width().max(40.0);
@@ -84,7 +84,7 @@ pub fn draw(ui: &mut Ui, app: &App, out: &mut Vec<Action>) {
                                             text_trunc(
                                                 ui,
                                                 format!("{} · {}", f.service_name, f.country_name),
-                                                sans_med(14.0),
+                                                sans_med(SANS_ROW),
                                                 FG,
                                                 w,
                                             );
@@ -95,7 +95,7 @@ pub fn draw(ui: &mut Ui, app: &App, out: &mut Vec<Action>) {
                                                     f.provider.name(),
                                                     f.operator
                                                 ),
-                                                sans(11.5),
+                                                sans(SANS_SMALL),
                                                 white(0.45),
                                                 w,
                                             );

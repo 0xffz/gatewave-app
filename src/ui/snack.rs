@@ -49,7 +49,7 @@ pub fn draw(ctx: &Context, app: &App, out: &mut Vec<Action>) {
                         ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
                             ui.spacing_mut().item_spacing = vec2(10.0, 0.0);
                             dot(ui, 8.0, dot_color);
-                            text_wrap(ui, &snack.msg, sans_med(13.5), BG);
+                            text_wrap(ui, &snack.msg, sans_med(SANS_BODY_LG), BG);
                         });
                     });
                 });

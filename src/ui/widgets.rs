@@ -145,7 +145,7 @@ pub fn hline(ui: &mut Ui, color: Color32) {
 
 /// Dashed empty-state box with centered lines of text.
 pub fn dashed_box(ui: &mut Ui, lines: &[&str]) {
-    let font = sans(12.5);
+    let font = sans(SANS_LABEL);
     let lh = line_h(ui, &font);
     let h = 28.0 * 2.0 + lh * lines.len() as f32;
     let (rect, _) = ui.allocate_exact_size(vec2(ui.available_width(), h), Sense::hover());
