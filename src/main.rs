@@ -14,11 +14,18 @@ use std::time::{Duration, Instant};
 
 use app::App;
 
+/// Dock / taskbar icon, embedded so a bare `cargo run` binary shows it without an app bundle.
+fn app_icon() -> egui::IconData {
+    eframe::icon_data::from_png_bytes(include_bytes!("../assets/icon-512.png"))
+        .expect("assets/icon-512.png is a valid PNG")
+}
+
 fn main() -> eframe::Result {
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_title("Number Desk")
             .with_app_id("number-desk")
+            .with_icon(app_icon())
             .with_inner_size([1380.0, 860.0])
             .with_min_inner_size([1100.0, 640.0]),
         ..Default::default()
@@ -71,6 +78,19 @@ impl eframe::App for App {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn embedded_app_icon_decodes() {
+        let icon = super::app_icon();
+        assert_eq!((icon.width, icon.height), (512, 512));
+        // Corner pixels are transparent: the drop shadow was cut away with the background.
+        assert_eq!(icon.rgba[3], 0);
+        let last = icon.rgba.len() - 4;
+        assert_eq!(icon.rgba[last + 3], 0);
+        // The centre is opaque icon.
+        let mid = ((256 * 512 + 256) * 4) as usize;
+        assert_eq!(icon.rgba[mid + 3], 255);
+    }
+
     use std::sync::Arc;
 
     use sms_activate::{ActivationStatus, ApiError};

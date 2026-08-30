@@ -82,6 +82,7 @@ Country keys are provider-native (`CountryRef::Id(187)` for the sms-activate fam
 | `app.rs`      | App state machine: provider slots, wizard, purchase / poll / cancel lifecycle, persistence |
 | `theme.rs`    | Palette, IBM Plex Sans/Mono (embedded, OFL), text sizes, global style |
 | `ui/`         | One file per region: sidebar, wizard, favorites, settings, numbers, snackbar; `widgets.rs` holds the custom widgets |
+| `assets/`     | Embedded IBM Plex fonts and the app icon (`icon.png` 1024 px master, `icon-512.png` is what the binary embeds) |
 
 `cargo test` covers the domain types, the app state machine over a mock backend (no network, nothing is ever
 bought) and runs headless egui frames over every screen.
