@@ -1,5 +1,7 @@
 //! Three-column layout: sidebar · main content · active numbers, plus the snackbar overlay.
 
+#[cfg(debug_assertions)]
+pub mod debug;
 pub mod widgets;
 
 mod favorites;

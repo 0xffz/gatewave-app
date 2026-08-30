@@ -243,6 +243,9 @@ pub struct App {
     token_seq: u64,
     copied_token: u64,
     clipboard: Option<String>,
+    /// Floating developer panel (F12), debug builds only.
+    #[cfg(debug_assertions)]
+    pub debug: crate::ui::debug::DebugPanel,
 }
 
 const SNACK_TTL: Duration = Duration::from_millis(4200);
@@ -321,6 +324,8 @@ impl App {
             token_seq: 0,
             copied_token: 0,
             clipboard: None,
+            #[cfg(debug_assertions)]
+            debug: Default::default(),
         };
         app.start();
         app

@@ -1,5 +1,7 @@
 //! Palette, typography and global egui style for Number Desk.
 
+use std::sync::atomic::{AtomicU32, Ordering};
+
 use egui::style::ScrollStyle;
 use egui::{Color32, Context, FontFamily, FontId, Stroke, Vec2};
 
@@ -47,10 +49,25 @@ pub fn lerp(a: Color32, b: Color32, t: f32) -> Color32 {
     )
 }
 
+// ---------------------------------------------------------------------------
+// Runtime text scale (adjusted from the debug panel; 1.0 in normal use)
+
+static FONT_SCALE_BITS: AtomicU32 = AtomicU32::new(0x3f80_0000); // 1.0f32
+
+/// Multiplier applied to every design font size.
+pub fn font_scale() -> f32 {
+    f32::from_bits(FONT_SCALE_BITS.load(Ordering::Relaxed))
+}
+
+#[cfg_attr(not(debug_assertions), allow(dead_code))]
+pub fn set_font_scale(scale: f32) {
+    FONT_SCALE_BITS.store(scale.clamp(0.5, 2.5).to_bits(), Ordering::Relaxed);
+}
+
 /// Proportional text — egui's default (Ubuntu-Light). The design's weight variants collapse onto
 /// the single bundled weight.
 pub fn sans(size: f32) -> FontId {
-    FontId::new(size, FontFamily::Proportional)
+    FontId::new(size * font_scale(), FontFamily::Proportional)
 }
 pub fn sans_med(size: f32) -> FontId {
     sans(size)
@@ -60,7 +77,7 @@ pub fn sans_semi(size: f32) -> FontId {
 }
 /// Monospace text — egui's default (Hack).
 pub fn mono(size: f32) -> FontId {
-    FontId::new(size, FontFamily::Monospace)
+    FontId::new(size * font_scale(), FontFamily::Monospace)
 }
 pub fn mono_semi(size: f32) -> FontId {
     mono(size)

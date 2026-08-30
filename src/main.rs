@@ -40,6 +40,8 @@ impl App {
 
         let ctx = ui.ctx().clone();
         let actions = ui::draw(ui, self);
+        #[cfg(debug_assertions)]
+        self.debug.show(&ctx);
         for action in actions {
             self.apply(action);
         }
