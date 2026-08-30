@@ -52,9 +52,12 @@ pub fn lerp(a: Color32, b: Color32, t: f32) -> Color32 {
 // ---------------------------------------------------------------------------
 // Runtime text scale (adjusted from the debug panel; 1.0 in normal use)
 
-static FONT_SCALE_BITS: AtomicU32 = AtomicU32::new(0x3f80_0000); // 1.0f32
+/// Default text multiplier over the design sizes (the design was drawn for a denser web layout).
+pub const DEFAULT_FONT_SCALE: f32 = 1.25;
 
-/// Multiplier applied to every design font size.
+static FONT_SCALE_BITS: AtomicU32 = AtomicU32::new(DEFAULT_FONT_SCALE.to_bits());
+
+/// Multiplier applied to every design font size (see [`DEFAULT_FONT_SCALE`]).
 pub fn font_scale() -> f32 {
     f32::from_bits(FONT_SCALE_BITS.load(Ordering::Relaxed))
 }

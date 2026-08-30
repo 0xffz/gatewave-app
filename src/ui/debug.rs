@@ -66,8 +66,8 @@ impl DebugPanel {
                                 .suffix("×"),
                         )
                         .changed();
-                    if ui.small_button("1.0").clicked() {
-                        self.font_scale = 1.0;
+                    if ui.small_button("reset").clicked() {
+                        self.font_scale = theme::DEFAULT_FONT_SCALE;
                         changed = true;
                     }
                 });
