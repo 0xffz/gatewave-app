@@ -352,6 +352,8 @@ pub enum Icon {
     Copy,
     /// A check mark (shown while a copy is fresh).
     Check,
+    /// A small ×.
+    Close,
 }
 
 /// Small bordered button showing a painted icon (same footprint as the design's `Copy` chip).
@@ -448,6 +450,10 @@ impl IconBtn {
                     ];
                     p.line_segment([pts[0], pts[1]], stroke);
                     p.line_segment([pts[1], pts[2]], stroke);
+                }
+                Icon::Close => {
+                    p.line_segment([c + vec2(-3.5, -3.5), c + vec2(3.5, 3.5)], stroke);
+                    p.line_segment([c + vec2(-3.5, 3.5), c + vec2(3.5, -3.5)], stroke);
                 }
             }
         }

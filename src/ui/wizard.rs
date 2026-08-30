@@ -66,7 +66,7 @@ fn header(ui: &mut Ui, app: &App, out: &mut Vec<Action>) {
                     Some(SortDir::Asc) => "↑",
                     None => "↕",
                 };
-                let r = Btn::new(format!("Price {arrow}"), sans(11.5))
+                let r = Btn::new(format!("Price {arrow}"), mono(11.5))
                     .fg(white(0.6))
                     .border(white(0.14))
                     .hover_fg(FG)
@@ -156,7 +156,7 @@ fn step_providers(ui: &mut Ui, app: &App, out: &mut Vec<Action>) {
                     text(ui, "Connecting…", sans(11.5), op(white(0.6), opacity));
                     false
                 } else {
-                    Btn::new("Connect →", sans(11.5))
+                    Btn::new("Connect ›", sans(11.5))
                         .fg(white(0.6))
                         .border(white(0.2))
                         .hover_fg(FG)

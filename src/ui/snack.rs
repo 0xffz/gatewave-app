@@ -39,9 +39,9 @@ pub fn draw(ctx: &Context, app: &App, out: &mut Vec<Action>) {
                     ui.spacing_mut().item_spacing = vec2(10.0, 0.0);
                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                         ui.spacing_mut().item_spacing = vec2(10.0, 0.0);
-                        let r = Btn::new("✕", mono(15.0))
+                        let r = IconBtn::new(Icon::Close)
                             .fg(black(0.45))
-                            .pad(2.0, 2.0)
+                            .hover_fg(BG)
                             .show(ui);
                         if r.clicked() {
                             out.push(Action::DismissSnack);

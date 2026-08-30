@@ -102,10 +102,10 @@ fn card(ui: &mut Ui, app: &App, n: &Number, out: &mut Vec<Action>) {
                 }
                 if n.dismissible() {
                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                        let r = Btn::new("✕", mono(13.0))
+                        let r = IconBtn::new(Icon::Close)
                             .fg(op(faint, opacity))
                             .hover_fg(op(fg, opacity))
-                            .pad(2.0, 2.0)
+                            .tooltip("Dismiss")
                             .show(ui);
                         if r.clicked() {
                             out.push(Action::DismissNumber(n.id));

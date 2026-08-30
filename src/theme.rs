@@ -1,9 +1,7 @@
 //! Palette, typography and global egui style for Number Desk.
 
-use std::sync::Arc;
-
 use egui::style::ScrollStyle;
-use egui::{Color32, Context, FontData, FontDefinitions, FontFamily, FontId, Stroke, Vec2};
+use egui::{Color32, Context, FontFamily, FontId, Stroke, Vec2};
 
 pub const BG: Color32 = Color32::from_rgb(0x0b, 0x0b, 0x0c);
 pub const FG: Color32 = Color32::from_rgb(0xf2, 0xf2, 0xf0);
@@ -49,78 +47,23 @@ pub fn lerp(a: Color32, b: Color32, t: f32) -> Color32 {
     )
 }
 
-const SANS: &str = "SpaceGrotesk-Regular";
-const SANS_MED: &str = "SpaceGrotesk-Medium";
-const SANS_SEMI: &str = "SpaceGrotesk-SemiBold";
-const MONO: &str = "JetBrainsMono-Regular";
-const MONO_SEMI: &str = "JetBrainsMono-SemiBold";
-
-fn font(name: &str, size: f32) -> FontId {
-    FontId::new(size, FontFamily::Name(name.into()))
-}
-
+/// Proportional text — egui's default (Ubuntu-Light). The design's weight variants collapse onto
+/// the single bundled weight.
 pub fn sans(size: f32) -> FontId {
-    font(SANS, size)
+    FontId::new(size, FontFamily::Proportional)
 }
 pub fn sans_med(size: f32) -> FontId {
-    font(SANS_MED, size)
+    sans(size)
 }
 pub fn sans_semi(size: f32) -> FontId {
-    font(SANS_SEMI, size)
+    sans(size)
 }
+/// Monospace text — egui's default (Hack).
 pub fn mono(size: f32) -> FontId {
-    font(MONO, size)
+    FontId::new(size, FontFamily::Monospace)
 }
 pub fn mono_semi(size: f32) -> FontId {
-    font(MONO_SEMI, size)
-}
-
-pub fn install_fonts(ctx: &Context) {
-    let mut fonts = FontDefinitions::default();
-    // Keep egui's bundled fonts as glyph fallbacks (arrows, stars, emoji).
-    let fallbacks = fonts
-        .families
-        .get(&FontFamily::Proportional)
-        .cloned()
-        .unwrap_or_default();
-
-    let faces: [(&str, &'static [u8]); 5] = [
-        (
-            SANS,
-            include_bytes!("../assets/fonts/SpaceGrotesk-Regular.ttf"),
-        ),
-        (
-            SANS_MED,
-            include_bytes!("../assets/fonts/SpaceGrotesk-Medium.ttf"),
-        ),
-        (
-            SANS_SEMI,
-            include_bytes!("../assets/fonts/SpaceGrotesk-SemiBold.ttf"),
-        ),
-        (
-            MONO,
-            include_bytes!("../assets/fonts/JetBrainsMono-Regular.ttf"),
-        ),
-        (
-            MONO_SEMI,
-            include_bytes!("../assets/fonts/JetBrainsMono-SemiBold.ttf"),
-        ),
-    ];
-    for (name, bytes) in faces {
-        fonts
-            .font_data
-            .insert(name.to_owned(), Arc::new(FontData::from_static(bytes)));
-        let mut family = vec![name.to_owned()];
-        family.extend(fallbacks.iter().cloned());
-        fonts.families.insert(FontFamily::Name(name.into()), family);
-    }
-    if let Some(prop) = fonts.families.get_mut(&FontFamily::Proportional) {
-        prop.insert(0, SANS.to_owned());
-    }
-    if let Some(m) = fonts.families.get_mut(&FontFamily::Monospace) {
-        m.insert(0, MONO.to_owned());
-    }
-    ctx.set_fonts(fonts);
+    mono(size)
 }
 
 pub fn apply_style(ctx: &Context) {

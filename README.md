@@ -80,10 +80,9 @@ Country keys are provider-native (`CountryRef::Id(187)` for the sms-activate fam
 | `config.rs`   | JSON config (keys, prefs, favorites, numbers) and `.env` seeding     |
 | `worker.rs`   | Background job runner (results arrive as events) and wall-clock timers |
 | `app.rs`      | App state machine: provider slots, wizard, purchase / poll / cancel lifecycle, persistence |
-| `theme.rs`    | Palette, fonts (Space Grotesk / JetBrains Mono, embedded), style     |
+| `theme.rs`    | Palette, egui default fonts, global style                            |
 | `ui/`         | One file per region: sidebar, wizard, favorites, settings, numbers, snackbar; `widgets.rs` holds the custom widgets |
 
 `cargo test` covers the domain types, the app state machine over a mock backend (no network, nothing is ever
 bought) and runs headless egui frames over every screen.
 
-Fonts in `assets/fonts/` are OFL-licensed (Space Grotesk, JetBrains Mono).
