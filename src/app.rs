@@ -243,6 +243,8 @@ pub struct App {
     token_seq: u64,
     copied_token: u64,
     clipboard: Option<String>,
+    /// Set when a received code should be announced with the chime; drained by the frame loop.
+    chime: bool,
     /// Floating developer panel (F12), debug builds only.
     #[cfg(debug_assertions)]
     pub debug: crate::ui::debug::DebugPanel,
@@ -333,6 +335,7 @@ impl App {
             token_seq: 0,
             copied_token: 0,
             clipboard: None,
+            chime: false,
             #[cfg(debug_assertions)]
             debug: Default::default(),
         };
@@ -431,6 +434,11 @@ impl App {
 
     pub fn take_clipboard(&mut self) -> Option<String> {
         self.clipboard.take()
+    }
+
+    /// True once per received code while the sound preference is on.
+    pub fn take_chime(&mut self) -> bool {
+        std::mem::take(&mut self.chime)
     }
 
     /// True while something on screen moves (skeletons, countdowns, blink, snackbar).
@@ -878,7 +886,9 @@ impl App {
         if self.prefs.notify {
             self.toast(format!("Code received for {phone}"), SnackKind::Success);
         }
-        // prefs.sound: the design plays a short chime — no audio backend here.
+        if self.prefs.sound {
+            self.chime = true;
+        }
         if self.prefs.auto_copy {
             self.clipboard = Some(code.replace(' ', ""));
         }
@@ -1929,6 +1939,17 @@ mod tests {
         assert_eq!(app.numbers[0].status, NumberStatus::Received);
         assert!(app.snack.is_none());
         assert_eq!(app.take_clipboard().as_deref(), Some("12345"));
+        // Sound is on by default: one chime per received code, then nothing.
+        assert!(app.take_chime());
+        assert!(!app.take_chime());
+
+        // Sound off: a second code arrives silently.
+        app.apply(Action::TogglePref(PrefKey::Sound));
+        app.apply(Action::RequestNumber);
+        app.tick();
+        app.fast_forward(Duration::from_secs(6));
+        assert_eq!(app.numbers[0].status, NumberStatus::Received);
+        assert!(!app.take_chime());
     }
 
     #[test]

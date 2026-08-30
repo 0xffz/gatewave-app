@@ -79,6 +79,7 @@ Country keys are provider-native (`CountryRef::Id(187)` for the sms-activate fam
 | `domain.rs`   | App-level types: numbers, favorites, preferences, formatting helpers |
 | `config.rs`   | JSON config (keys, prefs, favorites, numbers) and `.env` seeding     |
 | `worker.rs`   | Background job runner (results arrive as events) and wall-clock timers |
+| `sound.rs`    | The "code received" chime: a system sound through the OS player (`afplay` on macOS, `canberra`/`paplay`/`aplay` on Linux, PowerShell on Windows) on a background thread |
 | `app.rs`      | App state machine: provider slots, wizard, purchase / poll / cancel lifecycle, persistence |
 | `theme.rs`    | Palette, IBM Plex Sans/Mono (embedded, OFL), text sizes, global style |
 | `ui/`         | One file per region: sidebar, wizard, favorites, settings, numbers, snackbar; `widgets.rs` holds the custom widgets |

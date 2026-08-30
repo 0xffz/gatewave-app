@@ -6,6 +6,7 @@ mod app;
 mod backend;
 mod config;
 mod domain;
+mod sound;
 mod theme;
 mod ui;
 mod worker;
@@ -55,6 +56,9 @@ impl App {
         }
         if let Some(text) = self.take_clipboard() {
             ctx.copy_text(text);
+        }
+        if self.take_chime() {
+            sound::chime();
         }
 
         // Keep animating while something moves; otherwise wake up for the next timer.
