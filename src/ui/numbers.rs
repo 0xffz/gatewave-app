@@ -53,12 +53,18 @@ fn card(ui: &mut Ui, app: &App, n: &Number, out: &mut Vec<Action>) {
     } else {
         (CARD_BG, white(0.1), FG, white(0.45), white(0.35))
     };
-    let copy_btn = |label: &str| {
-        Btn::new(label, sans(10.5))
+    // Copy chips: a copy icon that turns into a check mark while the copy is fresh.
+    let copy_btn = |copied: bool, what: &str| {
+        IconBtn::new(if copied { Icon::Check } else { Icon::Copy })
             .fg(if invert { black(0.65) } else { white(0.65) })
             .border(if invert { black(0.25) } else { white(0.18) })
-            .pad(8.0, 3.0)
-            .radius(5)
+            .hover_fg(if invert { BG } else { FG })
+            .hover_border(if invert { black(0.5) } else { white(0.4) })
+            .tooltip(if copied {
+                "Copied".to_string()
+            } else {
+                format!("Copy {what}")
+            })
     };
 
     Frame::new()
@@ -81,12 +87,12 @@ fn card(ui: &mut Ui, app: &App, n: &Number, out: &mut Vec<Action>) {
                 match &n.phone {
                     Some(phone) => {
                         text_ls(ui, phone, mono_semi(14.5), op(fg, opacity), 0.15);
-                        let label = if app.copied_is(&format!("{}-p", n.id)) {
-                            "Copied"
-                        } else {
-                            "Copy"
-                        };
-                        if copy_btn(label).opacity(opacity).show(ui).clicked() {
+                        let copied = app.copied_is(&format!("{}-p", n.id));
+                        if copy_btn(copied, "number")
+                            .opacity(opacity)
+                            .show(ui)
+                            .clicked()
+                        {
                             out.push(Action::CopyPhone(n.id));
                         }
                     }
@@ -150,12 +156,8 @@ fn card(ui: &mut Ui, app: &App, n: &Number, out: &mut Vec<Action>) {
                                     )
                                 });
                         }
-                        let label = if app.copied_is(&format!("{}-c", n.id)) {
-                            "Copied"
-                        } else {
-                            "Copy code"
-                        };
-                        if copy_btn(label).show(ui).clicked() {
+                        let copied = app.copied_is(&format!("{}-c", n.id));
+                        if copy_btn(copied, "code").show(ui).clicked() {
                             out.push(Action::CopyCode(n.id));
                         }
                         ui.with_layout(Layout::right_to_left(Align::Center), |ui| {

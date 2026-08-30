@@ -344,6 +344,122 @@ impl Btn {
 }
 
 // ---------------------------------------------------------------------------
+// Icon buttons
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Icon {
+    /// Two overlapping squares.
+    Copy,
+    /// A check mark (shown while a copy is fresh).
+    Check,
+}
+
+/// Small bordered button showing a painted icon (same footprint as the design's `Copy` chip).
+pub struct IconBtn {
+    icon: Icon,
+    fg: Color32,
+    border: Color32,
+    hover_fg: Option<Color32>,
+    hover_border: Option<Color32>,
+    opacity: f32,
+    tooltip: Option<String>,
+}
+
+impl IconBtn {
+    pub fn new(icon: Icon) -> Self {
+        Self {
+            icon,
+            fg: FG,
+            border: Color32::TRANSPARENT,
+            hover_fg: None,
+            hover_border: None,
+            opacity: 1.0,
+            tooltip: None,
+        }
+    }
+    pub fn fg(mut self, c: Color32) -> Self {
+        self.fg = c;
+        self
+    }
+    pub fn border(mut self, c: Color32) -> Self {
+        self.border = c;
+        self
+    }
+    pub fn hover_fg(mut self, c: Color32) -> Self {
+        self.hover_fg = Some(c);
+        self
+    }
+    pub fn hover_border(mut self, c: Color32) -> Self {
+        self.hover_border = Some(c);
+        self
+    }
+    pub fn opacity(mut self, o: f32) -> Self {
+        self.opacity = o;
+        self
+    }
+    pub fn tooltip(mut self, text: impl Into<String>) -> Self {
+        self.tooltip = Some(text.into());
+        self
+    }
+
+    pub fn show(self, ui: &mut Ui) -> Response {
+        let (rect, resp) = ui.allocate_exact_size(vec2(26.0, 20.0), Sense::click());
+        let hovered = resp.hovered();
+        let fg = op(
+            if hovered {
+                self.hover_fg.unwrap_or(self.fg)
+            } else {
+                self.fg
+            },
+            self.opacity,
+        );
+        let border = if hovered {
+            self.hover_border.unwrap_or(self.border)
+        } else {
+            self.border
+        };
+        if ui.is_rect_visible(rect) {
+            let p = ui.painter();
+            if border != Color32::TRANSPARENT {
+                p.rect_stroke(
+                    rect,
+                    CornerRadius::same(5),
+                    Stroke::new(1.0, op(border, self.opacity)),
+                    StrokeKind::Inside,
+                );
+            }
+            let c = rect.center();
+            let stroke = Stroke::new(1.3, fg);
+            match self.icon {
+                Icon::Copy => {
+                    // Front square, fully drawn.
+                    let front = Rect::from_center_size(c + vec2(1.5, 1.5), vec2(7.5, 7.5));
+                    p.rect_stroke(front, CornerRadius::same(1), stroke, StrokeKind::Middle);
+                    // Back square: only its top and left edges, stopping short of the front one.
+                    let back = Rect::from_center_size(c - vec2(1.5, 1.5), vec2(7.5, 7.5));
+                    p.line_segment([back.left_bottom(), back.left_top()], stroke);
+                    p.line_segment([back.left_top(), back.right_top()], stroke);
+                }
+                Icon::Check => {
+                    let pts = [
+                        c + vec2(-4.5, 0.0),
+                        c + vec2(-1.5, 3.0),
+                        c + vec2(4.5, -3.5),
+                    ];
+                    p.line_segment([pts[0], pts[1]], stroke);
+                    p.line_segment([pts[1], pts[2]], stroke);
+                }
+            }
+        }
+        let resp = resp.on_hover_cursor(CursorIcon::PointingHand);
+        match self.tooltip {
+            Some(t) => resp.on_hover_text(t),
+            None => resp,
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Clickable rows
 
 pub struct RowStyle {
