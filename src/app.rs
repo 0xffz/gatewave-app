@@ -20,7 +20,7 @@ use crate::backend::{
 };
 use crate::config::Config;
 use crate::domain::{
-    DEFAULT_NUMBER_TTL, Favorite, Number, NumberStatus, PrefKey, Prefs, fmt_usd, fmt_usd4,
+    DEFAULT_NUMBER_TTL, Favorite, Number, NumberStatus, PrefKey, Prefs, fmt_usd, fmt_usd4, mmss,
     parse_phone, phone_display, phone_for_clipboard,
 };
 use crate::worker::{Timers, Worker};
@@ -258,7 +258,8 @@ const POLL_INTERVAL: Duration = Duration::from_secs(6);
 const POLL_RETRY: Duration = Duration::from_secs(12);
 /// Poll retry after HTTP 429.
 const POLL_RATE_LIMITED: Duration = Duration::from_secs(20);
-/// How long a provider makes us wait before a cancel is accepted.
+/// Fallback wait after an unexpected `EARLY_CANCEL_DENIED` from a provider without a known
+/// grace period (see [`ProviderKind::cancel_grace`]).
 const CANCEL_GRACE: Duration = Duration::from_secs(120);
 
 impl App {
@@ -780,6 +781,9 @@ impl App {
                 n.price = activation.cost.unwrap_or(n.price);
                 n.expires_at = Some(now + DEFAULT_NUMBER_TTL);
                 n.total = DEFAULT_NUMBER_TTL;
+                // Providers that refuse early cancels get the button disabled right away,
+                // counting the grace period down instead of bouncing off the API.
+                n.cancelable_at = kind.cancel_grace().map(|g| now + g);
                 self.timers
                     .schedule(FIRST_POLL, Event::PollDue { local_id });
                 self.refresh_balance(kind);
@@ -915,9 +919,14 @@ impl App {
                 kind.name()
             ),
             Err(ApiError::EarlyCancelDenied) => {
-                n.cancelable_at = Some(now + CANCEL_GRACE);
+                let grace = kind.cancel_grace().unwrap_or(CANCEL_GRACE);
+                n.cancelable_at = Some(now + grace);
                 self.toast(
-                    format!("{}: number can be cancelled in 2:00", kind.name()),
+                    format!(
+                        "{}: number can be cancelled in {}",
+                        kind.name(),
+                        mmss(grace)
+                    ),
                     SnackKind::Info,
                 );
                 self.persist();
@@ -1758,6 +1767,7 @@ mod tests {
         app.fast_forward(Duration::from_secs(6));
         assert!(mock.calls().iter().any(|c| c == "status 777"));
         let id = app.numbers[0].id;
+        app.fast_forward(CANCEL_GRACE);
         app.apply(Action::CancelNumber(id));
         app.tick();
         assert_eq!(app.numbers[0].status, NumberStatus::Cancelled);
@@ -2014,12 +2024,65 @@ mod tests {
     }
 
     #[test]
+    fn cancel_waits_out_the_provider_grace_period() {
+        let (mut app, mock, _) = hero_app();
+        app.walk_to_offer(ProviderKind::HeroSms);
+        app.apply(Action::RequestNumber);
+        app.tick();
+        let id = app.numbers[0].id;
+        let n = &app.numbers[0];
+        assert_eq!(n.status, NumberStatus::Waiting);
+        assert_eq!(
+            n.cancelable_at,
+            Some(app.now + Duration::from_secs(120)),
+            "Hero SMS refuses cancels for two minutes, so the button waits from the start"
+        );
+        // Clicking during the grace period is a no-op: no request, no snack.
+        app.apply(Action::CancelNumber(id));
+        app.tick();
+        assert!(!app.numbers[0].cancel_pending);
+        assert_eq!(app.numbers[0].status, NumberStatus::Waiting);
+        assert!(!mock.calls().iter().any(|c| c.starts_with("cancel")));
+        assert!(app.snack_text().is_none());
+        // One second short of the deadline still waits …
+        app.fast_forward(Duration::from_secs(119));
+        app.apply(Action::CancelNumber(id));
+        assert!(!mock.calls().iter().any(|c| c.starts_with("cancel")));
+        // … and once it passes the cancel goes through.
+        app.fast_forward(Duration::from_secs(120));
+        app.apply(Action::CancelNumber(id));
+        app.tick();
+        assert_eq!(app.numbers[0].status, NumberStatus::Cancelled);
+        assert!(mock.calls().iter().any(|c| c == "cancel 777"));
+    }
+
+    #[test]
+    fn providers_without_a_grace_period_cancel_at_once() {
+        let mock = Arc::new(MockBackend::new(ProviderKind::FiveSim));
+        let (mut app, _) = app_with(
+            config_with_keys(&[ProviderKind::FiveSim]),
+            vec![(ProviderKind::FiveSim, mock.clone())],
+        );
+        app.tick();
+        app.walk_to_offer(ProviderKind::FiveSim);
+        app.apply(Action::RequestNumber);
+        app.tick();
+        let id = app.numbers[0].id;
+        assert_eq!(app.numbers[0].cancelable_at, None);
+        app.apply(Action::CancelNumber(id));
+        app.tick();
+        assert_eq!(app.numbers[0].status, NumberStatus::Cancelled);
+        assert!(mock.calls().iter().any(|c| c == "cancel 777"));
+    }
+
+    #[test]
     fn cancel_success_and_early_denied() {
         let (mut app, mock, _) = hero_app();
         app.walk_to_offer(ProviderKind::HeroSms);
         app.apply(Action::RequestNumber);
         app.tick();
         let id = app.numbers[0].id;
+        app.fast_forward(CANCEL_GRACE);
         app.apply(Action::CancelNumber(id));
         app.tick();
         assert_eq!(app.numbers[0].status, NumberStatus::Cancelled);

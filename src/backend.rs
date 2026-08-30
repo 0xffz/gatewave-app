@@ -6,6 +6,7 @@
 //! and how a chosen offer is turned into a purchase request — are matched per provider.
 
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
 use sms_activate::providers::fivesim::FiveSim;
@@ -70,6 +71,19 @@ impl ProviderKind {
         match self {
             ProviderKind::FiveSim => 32,
             _ => 8,
+        }
+    }
+
+    /// How long after a purchase the provider refuses to cancel (`EARLY_CANCEL_DENIED`).
+    /// Known up front so the Cancel button can count the wait down instead of bouncing off
+    /// the API. `None` when the provider cancels straight away.
+    pub fn cancel_grace(self) -> Option<Duration> {
+        match self {
+            // `info.minActivationTime: 120` on Hero-SMS / Tiger SMS; SMSBower documents the
+            // same two minutes.
+            ProviderKind::HeroSms | ProviderKind::TigerSms => Some(Duration::from_secs(120)),
+            ProviderKind::SmsBower => Some(sms_activate::providers::smsbower::CANCEL_GRACE_PERIOD),
+            ProviderKind::FiveSim => None,
         }
     }
 }
