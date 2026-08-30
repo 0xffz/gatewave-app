@@ -18,7 +18,6 @@ use crate::theme::*;
 
 pub const SIDEBAR_W: f32 = 264.0;
 pub const NUMBERS_W: f32 = 372.0;
-pub const CONTENT_MAX_W: f32 = 640.0;
 
 pub fn draw(ui: &mut Ui, app: &App) -> Vec<Action> {
     let mut out = Vec::new();
@@ -62,9 +61,9 @@ pub fn draw(ui: &mut Ui, app: &App) -> Vec<Action> {
     out
 }
 
-/// Runs `f` inside a top-down column no wider than the design's 640px content width.
+/// Runs `f` inside a top-down column filling the centre panel's width.
 pub fn content_column(ui: &mut Ui, f: impl FnOnce(&mut egui::Ui)) {
-    let w = ui.available_width().min(CONTENT_MAX_W);
+    let w = ui.available_width();
     ui.allocate_ui_with_layout(
         egui::vec2(w, ui.available_height()),
         egui::Layout::top_down(egui::Align::Min),
