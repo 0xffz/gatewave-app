@@ -4,7 +4,7 @@ use egui::{Align, Color32, CornerRadius, Frame, Layout, Margin, Ui, vec2};
 
 use super::widgets::*;
 use crate::app::{Action, App, Screen};
-use crate::model::fmt_usd;
+use crate::domain::fmt_usd;
 use crate::theme::*;
 
 pub fn draw(ui: &mut Ui, app: &App, out: &mut Vec<Action>) {
@@ -113,14 +113,14 @@ pub fn draw(ui: &mut Ui, app: &App, out: &mut Vec<Action>) {
     ui.with_layout(Layout::bottom_up(Align::Min), |ui| {
         ui.spacing_mut().item_spacing = egui::Vec2::ZERO;
         ui.add_space(2.0);
-        let balances: Vec<_> = app.balances().collect();
-        for p in balances.iter().rev() {
+        let balances = app.balances();
+        for (name, balance) in balances.iter().rev() {
             ui.horizontal(|ui| {
                 ui.add_space(6.0);
-                text(ui, &p.name, sans(12.5), white(0.6));
+                text(ui, *name, sans(12.5), white(0.6));
                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                     ui.add_space(6.0);
-                    text(ui, fmt_usd(p.balance), mono(12.0), FG);
+                    text(ui, fmt_usd(*balance), mono(12.0), FG);
                 });
             });
             ui.add_space(8.0);

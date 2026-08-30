@@ -1,4 +1,4 @@
-//! Palette, typography and global egui style for the Number Desk mock.
+//! Palette, typography and global egui style for Number Desk.
 
 use std::sync::Arc;
 
@@ -51,7 +51,6 @@ const SANS: &str = "SpaceGrotesk-Regular";
 const SANS_MED: &str = "SpaceGrotesk-Medium";
 const SANS_SEMI: &str = "SpaceGrotesk-SemiBold";
 const MONO: &str = "JetBrainsMono-Regular";
-const MONO_MED: &str = "JetBrainsMono-Medium";
 const MONO_SEMI: &str = "JetBrainsMono-SemiBold";
 
 fn font(name: &str, size: f32) -> FontId {
@@ -70,10 +69,6 @@ pub fn sans_semi(size: f32) -> FontId {
 pub fn mono(size: f32) -> FontId {
     font(MONO, size)
 }
-#[allow(dead_code)]
-pub fn mono_med(size: f32) -> FontId {
-    font(MONO_MED, size)
-}
 pub fn mono_semi(size: f32) -> FontId {
     font(MONO_SEMI, size)
 }
@@ -87,7 +82,7 @@ pub fn install_fonts(ctx: &Context) {
         .cloned()
         .unwrap_or_default();
 
-    let faces: [(&str, &'static [u8]); 6] = [
+    let faces: [(&str, &'static [u8]); 5] = [
         (
             SANS,
             include_bytes!("../assets/fonts/SpaceGrotesk-Regular.ttf"),
@@ -103,10 +98,6 @@ pub fn install_fonts(ctx: &Context) {
         (
             MONO,
             include_bytes!("../assets/fonts/JetBrainsMono-Regular.ttf"),
-        ),
-        (
-            MONO_MED,
-            include_bytes!("../assets/fonts/JetBrainsMono-Medium.ttf"),
         ),
         (
             MONO_SEMI,

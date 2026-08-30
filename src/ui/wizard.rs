@@ -7,7 +7,7 @@ use egui::{
 use super::content_column;
 use super::widgets::*;
 use crate::app::{Action, App, Screen, SortDir};
-use crate::model::*;
+use crate::domain::{fmt_thousands, fmt_usd, fmt_usd4};
 use crate::theme::*;
 
 pub fn draw(ui: &mut Ui, app: &App, out: &mut Vec<Action>) {
@@ -109,6 +109,16 @@ fn skeleton_list(ui: &mut Ui, h: f32) {
     }
 }
 
+/// Lists can run to a thousand rows: rows scrolled out of view only reserve their space.
+fn row_visible(ui: &Ui, h: f32) -> bool {
+    let rect = Rect::from_min_size(ui.cursor().min, vec2(ui.available_width(), h));
+    ui.is_rect_visible(rect)
+}
+
+fn empty_hint(ui: &mut Ui, lines: &[&str]) {
+    dashed_box(ui, lines);
+}
+
 // ---------------------------------------------------------------------------
 // Step 1
 
@@ -116,7 +126,8 @@ fn step_providers(ui: &mut Ui, app: &App, out: &mut Vec<Action>) {
     let btn_h = line_h(ui, &sans(11.5)) + 10.0;
     let row_h = 26.0 + line_h(ui, &sans_med(14.5)).max(btn_h);
     for p in app.provider_rows() {
-        let selected = app.provider.as_deref() == Some(p.name.as_str());
+        let kind = p.kind;
+        let selected = app.provider == Some(kind);
         let fg = if selected { BG } else { FG };
         let opacity = if !p.connected && !selected { 0.55 } else { 1.0 };
         let style = if selected {
@@ -125,38 +136,41 @@ fn step_providers(ui: &mut Ui, app: &App, out: &mut Vec<Action>) {
             RowStyle::base()
         }
         .opacity(opacity);
-        let name = p.name.clone();
-        let (resp, connect_clicked) =
-            clickable_row(ui, ("provider", &p.name), row_h, &style, |ui| {
-                dot(
-                    ui,
-                    7.0,
-                    op(if p.connected { GREEN } else { white(0.2) }, opacity),
-                );
-                text(ui, &p.name, sans_med(14.5), op(fg, opacity));
-                ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                    if p.connected {
-                        text(ui, fmt_usd(p.balance), mono(12.5), op(fg, 0.75));
-                        false
-                    } else {
-                        Btn::new("Connect →", sans(11.5))
-                            .fg(white(0.6))
-                            .border(white(0.2))
-                            .hover_fg(FG)
-                            .hover_border(white(0.5))
-                            .pad(10.0, 5.0)
-                            .radius(6)
-                            .opacity(opacity)
-                            .show(ui)
-                            .clicked()
+        let (resp, connect_clicked) = clickable_row(ui, ("provider", kind), row_h, &style, |ui| {
+            dot(
+                ui,
+                7.0,
+                op(if p.connected { GREEN } else { white(0.2) }, opacity),
+            );
+            text(ui, p.name(), sans_med(14.5), op(fg, opacity));
+            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                if p.connected {
+                    if let Some(balance) = p.balance {
+                        text(ui, fmt_usd(balance), mono(12.5), op(fg, 0.75));
                     }
-                })
-                .inner
-            });
+                    false
+                } else if p.connecting {
+                    text(ui, "Connecting…", sans(11.5), op(white(0.6), opacity));
+                    false
+                } else {
+                    Btn::new("Connect →", sans(11.5))
+                        .fg(white(0.6))
+                        .border(white(0.2))
+                        .hover_fg(FG)
+                        .hover_border(white(0.5))
+                        .pad(10.0, 5.0)
+                        .radius(6)
+                        .opacity(opacity)
+                        .show(ui)
+                        .clicked()
+                }
+            })
+            .inner
+        });
         if connect_clicked {
             out.push(Action::GoScreen(Screen::Settings));
         } else if resp.clicked() {
-            out.push(Action::PickProvider(name));
+            out.push(Action::PickProvider(kind));
         }
         ui.add_space(8.0);
     }
@@ -179,12 +193,22 @@ fn step_services(ui: &mut Ui, app: &App, out: &mut Vec<Action>) {
         }
         return;
     }
+    let rows = app.service_rows();
+    if rows.is_empty() {
+        empty_hint(ui, &["No services match.", "Try another search."]);
+        return;
+    }
     let tile_h = 24.0 + 30.0;
-    for pair in app.service_rows().chunks(2) {
+    for pair in rows.chunks(2) {
+        if !row_visible(ui, tile_h) {
+            ui.allocate_space(vec2(ui.available_width(), tile_h));
+            ui.add_space(gap);
+            continue;
+        }
         ui.horizontal(|ui| {
             ui.spacing_mut().item_spacing = vec2(gap, 0.0);
             for s in pair {
-                let selected = app.service.as_deref() == Some(*s);
+                let selected = app.service.as_ref().is_some_and(|sel| sel.code == s.code);
                 let style = if selected {
                     RowStyle::selected()
                 } else {
@@ -192,26 +216,40 @@ fn step_services(ui: &mut Ui, app: &App, out: &mut Vec<Action>) {
                 }
                 .pad(14.0, 12.0)
                 .width(tile_w);
-                let (resp, _) = clickable_row(ui, ("service", s), tile_h, &style, |ui| {
-                    let (fill, fg) = if selected {
-                        (BG, FG)
-                    } else {
-                        (white(0.08), FG)
-                    };
-                    badge(
-                        ui,
-                        &s[..1],
-                        vec2(30.0, 30.0),
-                        7,
-                        fill,
-                        Color32::TRANSPARENT,
-                        mono_semi(13.0),
-                        fg,
-                    );
-                    text(ui, *s, sans_med(14.0), if selected { BG } else { FG });
-                });
+                let initial: String = s
+                    .name
+                    .chars()
+                    .next()
+                    .map(|c| c.to_uppercase().collect())
+                    .unwrap_or_default();
+                let (resp, _) =
+                    clickable_row(ui, ("service", s.code.as_str()), tile_h, &style, |ui| {
+                        let (fill, fg) = if selected {
+                            (BG, FG)
+                        } else {
+                            (white(0.08), FG)
+                        };
+                        badge(
+                            ui,
+                            &initial,
+                            vec2(30.0, 30.0),
+                            7,
+                            fill,
+                            Color32::TRANSPARENT,
+                            mono_semi(13.0),
+                            fg,
+                        );
+                        let w = ui.available_width();
+                        text_trunc(
+                            ui,
+                            &s.name,
+                            sans_med(14.0),
+                            if selected { BG } else { FG },
+                            w,
+                        );
+                    });
                 if resp.clicked() {
-                    out.push(Action::PickService(s.to_string()));
+                    out.push(Action::PickService((*s).clone()));
                 }
             }
         });
@@ -227,17 +265,33 @@ fn step_countries(ui: &mut Ui, app: &App, out: &mut Vec<Action>) {
         skeleton_list(ui, 50.0);
         return;
     }
+    let rows = app.country_rows();
+    if rows.is_empty() {
+        empty_hint(
+            ui,
+            &["No countries for this service.", "Try another service."],
+        );
+        return;
+    }
     let row_h = 24.0 + line_h(ui, &sans_med(14.0)).max(24.0);
-    for c in app.country_rows() {
-        let selected = app.country.is_some_and(|sel| sel.code == c.code);
+    for c in rows {
+        if !row_visible(ui, row_h) {
+            ui.allocate_space(vec2(ui.available_width(), row_h));
+            ui.add_space(8.0);
+            continue;
+        }
+        let selected = app.country.as_ref().is_some_and(|sel| sel.key == c.key);
         let fg = if selected { BG } else { FG };
+        // Sold out here right now: shown, but faded.
+        let opacity = if c.count == 0 && !selected { 0.55 } else { 1.0 };
         let style = if selected {
             RowStyle::selected()
         } else {
             RowStyle::base()
         }
-        .pad(14.0, 12.0);
-        let (resp, _) = clickable_row(ui, ("country", c.code), row_h, &style, |ui| {
+        .pad(14.0, 12.0)
+        .opacity(opacity);
+        let (resp, _) = clickable_row(ui, ("country", &c.key), row_h, &style, |ui| {
             let (fill, badge_fg) = if selected {
                 (BG, FG)
             } else {
@@ -245,33 +299,35 @@ fn step_countries(ui: &mut Ui, app: &App, out: &mut Vec<Action>) {
             };
             badge(
                 ui,
-                c.code,
+                &c.code,
                 vec2(32.0, 24.0),
                 5,
-                fill,
+                op(fill, opacity),
                 Color32::TRANSPARENT,
                 mono_semi(11.0),
-                badge_fg,
+                op(badge_fg, opacity),
             );
-            text(ui, c.name, sans_med(14.0), fg);
+            text(ui, &c.name, sans_med(14.0), op(fg, opacity));
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                 ui.allocate_ui_with_layout(
                     vec2(56.0, ui.available_height()),
                     Layout::right_to_left(Align::Center),
                     |ui| {
-                        text(ui, fmt_usd(app.country_price(&c)), mono(13.0), fg);
+                        text(ui, fmt_usd(c.price), mono(13.0), op(fg, opacity));
                     },
                 );
-                text(
-                    ui,
-                    c.dial,
-                    mono(12.0),
-                    if selected { black(0.45) } else { white(0.45) },
-                );
+                if let Some(dial) = &c.dial {
+                    text(
+                        ui,
+                        dial,
+                        mono(12.0),
+                        op(if selected { black(0.45) } else { white(0.45) }, opacity),
+                    );
+                }
             });
         });
         if resp.clicked() {
-            out.push(Action::PickCountry(c));
+            out.push(Action::PickCountry(c.clone()));
         }
         ui.add_space(8.0);
     }
@@ -285,12 +341,13 @@ fn step_offers(ui: &mut Ui, app: &App, out: &mut Vec<Action>) {
         skeleton_list(ui, 44.0);
         return;
     }
-    let (Some(provider), Some(service), Some(country)) = (&app.provider, &app.service, app.country)
-    else {
+    let groups = app.offer_rows();
+    if groups.is_empty() {
+        empty_hint(ui, &["No offers right now.", "Try another country."]);
         return;
-    };
+    }
     let tier_h = 22.0 + line_h(ui, &mono_semi(13.5)).max(line_h(ui, &sans(14.0)) + 4.0);
-    for g in app.offer_groups() {
+    for g in groups {
         ui.horizontal(|ui| {
             ui.add_space(2.0);
             text(ui, &g.name, sans_semi(13.0), FG);
@@ -309,15 +366,9 @@ fn step_offers(ui: &mut Ui, app: &App, out: &mut Vec<Action>) {
             let selected = app
                 .offer
                 .as_ref()
-                .is_some_and(|o| o.operator == g.name && o.price == t.price);
-            let fav = Favorite {
-                provider: provider.clone(),
-                service: service.clone(),
-                country,
-                operator: g.name.clone(),
-                price: t.price,
-            };
-            let is_fav = app.is_fav(&fav);
+                .is_some_and(|(group, tier)| *group == g.name && tier == t);
+            let fav = app.favorite_for(&g.name, t);
+            let is_fav = fav.as_ref().is_some_and(|f| app.is_fav(f));
             let style = if selected {
                 RowStyle::selected()
             } else {
@@ -352,12 +403,11 @@ fn step_offers(ui: &mut Ui, app: &App, out: &mut Vec<Action>) {
                     .inner
                 });
             if star_clicked {
-                out.push(Action::ToggleFav(fav));
+                if let Some(fav) = fav {
+                    out.push(Action::ToggleFav(fav));
+                }
             } else if resp.clicked() {
-                out.push(Action::PickOffer(Offer {
-                    operator: g.name.clone(),
-                    price: t.price,
-                }));
+                out.push(Action::PickOffer(g.name.clone(), t.clone()));
             }
             ui.add_space(8.0);
         }

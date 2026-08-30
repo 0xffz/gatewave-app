@@ -6,7 +6,7 @@ use egui::{Align, CornerRadius, Frame, Layout, Margin, ScrollArea, Stroke, Ui, v
 
 use super::widgets::*;
 use crate::app::{Action, App};
-use crate::model::{Number, NumberStatus, fmt_usd, mmss};
+use crate::domain::{Number, NumberStatus, fmt_usd, mmss};
 use crate::theme::*;
 
 pub fn draw(ui: &mut Ui, app: &App, out: &mut Vec<Action>) {
@@ -42,7 +42,7 @@ pub fn draw(ui: &mut Ui, app: &App, out: &mut Vec<Action>) {
 }
 
 fn card(ui: &mut Ui, app: &App, n: &Number, out: &mut Vec<Action>) {
-    let invert = app.sim.invert_received && n.status == NumberStatus::Received;
+    let invert = n.status == NumberStatus::Received;
     let opacity = if matches!(n.status, NumberStatus::Expired | NumberStatus::Cancelled) {
         0.55
     } else {
@@ -108,12 +108,7 @@ fn card(ui: &mut Ui, app: &App, n: &Number, out: &mut Vec<Action>) {
                 }
             });
             ui.add_space(3.0);
-            text(
-                ui,
-                format!("{} · {} · {}", n.service, n.country.name, n.provider),
-                sans(11.5),
-                op(muted, opacity),
-            );
+            text(ui, n.meta_line(), sans(11.5), op(muted, opacity));
 
             match n.status {
                 NumberStatus::Requesting => {
@@ -216,7 +211,10 @@ fn waiting(ui: &mut Ui, app: &App, n: &Number, out: &mut Vec<Action>) {
         let label = if n.cancel_pending {
             "Cancelling…".to_string()
         } else if let Some(t) = cancel_wait {
-            format!("Cancel in {}", mmss(t.saturating_duration_since(now)))
+            format!(
+                "Cancel in {}",
+                mmss(t.duration_since(now).unwrap_or_default())
+            )
         } else {
             "Cancel & refund".to_string()
         };

@@ -5,7 +5,7 @@ use egui::{Align, Color32, CornerRadius, Frame, Id, Layout, Margin, ScrollArea, 
 use super::widgets::*;
 use super::{content_column, page_header};
 use crate::app::{Action, App};
-use crate::model::{PREF_DEFS, fmt_usd, masked_key};
+use crate::domain::{PREF_DEFS, fmt_usd, masked_key};
 use crate::theme::*;
 
 pub fn draw(ui: &mut Ui, app: &App, out: &mut Vec<Action>) {
@@ -76,7 +76,7 @@ fn providers(ui: &mut Ui, app: &App, out: &mut Vec<Action>) {
     let key_font = mono(12.5);
     let input_h = input_height(ui, &key_font, 10.0);
     for p in &app.providers {
-        let connecting = app.connecting.as_deref() == Some(p.name.as_str());
+        let kind = p.kind;
         Frame::new()
             .fill(ROW_BG)
             .stroke(Stroke::new(1.0, white(0.1)))
@@ -93,7 +93,7 @@ fn providers(ui: &mut Ui, app: &App, out: &mut Vec<Action>) {
                 ui.horizontal(|ui| {
                     ui.spacing_mut().item_spacing = vec2(10.0, 0.0);
                     dot(ui, 7.0, if p.connected { GREEN } else { white(0.2) });
-                    text(ui, &p.name, sans_semi(14.5), FG);
+                    text(ui, p.name(), sans_semi(14.5), FG);
                     if p.connected {
                         ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                             ui.spacing_mut().item_spacing = vec2(10.0, 0.0);
@@ -103,9 +103,11 @@ fn providers(ui: &mut Ui, app: &App, out: &mut Vec<Action>) {
                                 .pad(2.0, 2.0)
                                 .show(ui);
                             if r.clicked() {
-                                out.push(Action::Disconnect(p.name.clone()));
+                                out.push(Action::Disconnect(kind));
                             }
-                            text(ui, fmt_usd(p.balance), mono(12.5), op(FG, 0.75));
+                            if let Some(balance) = p.balance {
+                                text(ui, fmt_usd(balance), mono(12.5), op(FG, 0.75));
+                            }
                         });
                     }
                 });
@@ -113,11 +115,11 @@ fn providers(ui: &mut Ui, app: &App, out: &mut Vec<Action>) {
                 if p.connected {
                     text(
                         ui,
-                        format!("API key · {}", masked_key(&p.key)),
+                        format!("API key · {}", masked_key(p.key.as_deref().unwrap_or(""))),
                         mono(12.0),
                         white(0.4),
                     );
-                } else if connecting {
+                } else if p.connecting {
                     skeleton(ui, vec2(ui.available_width(), 38.0), 7);
                 } else {
                     ui.horizontal(|ui| {
@@ -130,14 +132,14 @@ fn providers(ui: &mut Ui, app: &App, out: &mut Vec<Action>) {
                                 .min_height(input_h)
                                 .show(ui);
                             if r.clicked() {
-                                out.push(Action::Connect(p.name.clone()));
+                                out.push(Action::Connect(kind));
                             }
-                            let mut v = app.key_inputs.get(&p.name).cloned().unwrap_or_default();
+                            let mut v = app.key_inputs.get(&kind).cloned().unwrap_or_default();
                             let r = input(
                                 ui,
-                                Id::new(("api-key", &p.name)),
+                                Id::new(("api-key", kind)),
                                 &mut v,
-                                "Paste API key",
+                                kind.key_hint(),
                                 key_font.clone(),
                                 InputStyle {
                                     bg: BG,
@@ -148,7 +150,7 @@ fn providers(ui: &mut Ui, app: &App, out: &mut Vec<Action>) {
                                 },
                             );
                             if r.changed() {
-                                out.push(Action::SetKeyInput(p.name.clone(), v));
+                                out.push(Action::SetKeyInput(kind, v));
                             }
                         });
                     });

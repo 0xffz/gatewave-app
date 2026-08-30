@@ -5,7 +5,7 @@ use egui::{Align, Color32, CornerRadius, Frame, Layout, Margin, ScrollArea, Stro
 use super::widgets::*;
 use super::{content_column, page_header};
 use crate::app::{Action, App};
-use crate::model::fmt_usd4;
+use crate::domain::fmt_usd4;
 use crate::theme::*;
 
 pub fn draw(ui: &mut Ui, app: &App, out: &mut Vec<Action>) {
@@ -48,7 +48,7 @@ pub fn draw(ui: &mut Ui, app: &App, out: &mut Vec<Action>) {
                                 ui.spacing_mut().item_spacing = vec2(12.0, 0.0);
                                 badge(
                                     ui,
-                                    f.country.code,
+                                    &f.country_code,
                                     vec2(32.0, 24.0),
                                     5,
                                     white(0.08),
@@ -60,13 +60,13 @@ pub fn draw(ui: &mut Ui, app: &App, out: &mut Vec<Action>) {
                                     ui.spacing_mut().item_spacing = vec2(0.0, 2.0);
                                     text(
                                         ui,
-                                        format!("{} · {}", f.service, f.country.name),
+                                        format!("{} · {}", f.service_name, f.country_name),
                                         sans_med(14.0),
                                         FG,
                                     );
                                     text(
                                         ui,
-                                        format!("via {} · {}", f.provider, f.operator),
+                                        format!("via {} · {}", f.provider.name(), f.operator),
                                         sans(11.5),
                                         white(0.45),
                                     );
