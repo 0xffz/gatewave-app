@@ -1,0 +1,1 @@
+{"status":"success","countryOperators":{"73":["algartelecom","arqia","cellular","claro","correios_celular","links_field","nlt","oi","surf","tim","vivo","vodafone"]}}

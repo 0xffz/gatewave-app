@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0b0b0c;color:#f2f2f0;font-family:'Space Grotesk',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#f2f2f0}a:hover{color:#ffffff}
+*{box-sizing:border-box}
+::-webkit-scrollbar{width:8px}::-webkit-scrollbar-thumb{background:rgba(255,255,255,.12);border-radius:4px}::-webkit-scrollbar-track{background:transparent}
+@keyframes sk{0%{background-position:200% 0}100%{background-position:-200% 0}}
+@keyframes snackin{from{opacity:0;transform:translate(-50%,-8px)}to{opacity:1;transform:translate(-50%,0)}}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+input::placeholder{color:rgba(255,255,255,.3)}
+</style>
+</helmet>
+<div data-screen-label="Number Desk" style="display:grid;grid-template-columns:264px 1fr 372px;height:100vh;overflow:hidden">
+
+  <!-- SNACKBAR -->
+  <sc-if value="{{ snackVisible }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;top:18px;left:50%;transform:translateX(-50%);z-index:50;display:flex;align-items:center;gap:10px;background:#f2f2f0;color:#0b0b0c;padding:11px 14px 11px 16px;border-radius:8px;box-shadow:0 12px 32px rgba(0,0,0,.5);animation:snackin .18s ease;max-width:520px">
+      <span style="{{ snackDotStyle }}"></span>
+      <span style="font-size:13.5px;font-weight:500;line-height:1.35">{{ snackMsg }}</span>
+      <button onClick="{{ dismissSnack }}" style="background:none;border:none;color:rgba(0,0,0,.45);font-size:15px;cursor:pointer;padding:2px 2px 2px 6px;line-height:1">✕</button>
+    </div>
+  </sc-if>
+
+  <!-- LEFT SIDEBAR -->
+  <aside style="border-right:1px solid rgba(255,255,255,.08);display:flex;flex-direction:column;padding:22px 18px;gap:22px;overflow-y:auto">
+    <div style="display:flex;align-items:baseline;gap:8px;padding:0 6px">
+      <span style="font-family:'JetBrains Mono',monospace;font-weight:600;font-size:16px;letter-spacing:.06em;background:#f2f2f0;color:#0b0b0c;padding:3px 7px;border-radius:5px">N/D</span>
+      <span style="font-size:13px;font-weight:500;letter-spacing:.02em">Number Desk</span>
+    </div>
+
+    <nav style="display:flex;flex-direction:column;gap:4px">
+      <button onClick="{{ goNew }}" style="{{ navNewStyle }}">New number</button>
+      <button onClick="{{ goFavs }}" style="{{ navFavsStyle }}">Favorites</button>
+      <button onClick="{{ goSettings }}" style="{{ navSettingsStyle }}">Settings</button>
+    </nav>
+
+    <div style="display:flex;flex-direction:column;gap:6px">
+      <div style="font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.35);padding:0 6px;margin-bottom:4px">Steps</div>
+      <sc-for list="{{ steps }}" as="s" hint-placeholder-count="3">
+        <button onClick="{{ s.onClick }}" style="{{ s.boxStyle }}">
+          <span style="{{ s.numStyle }}">{{ s.num }}</span>
+          <span style="display:flex;flex-direction:column;align-items:flex-start;gap:2px;min-width:0">
+            <span style="font-size:13px;font-weight:500">{{ s.label }}</span>
+            <span style="{{ s.valStyle }}">{{ s.value }}</span>
+          </span>
+        </button>
+      </sc-for>
+    </div>
+
+    <div style="margin-top:auto;display:flex;flex-direction:column;gap:8px;padding:14px 6px 2px;border-top:1px solid rgba(255,255,255,.08)">
+      <div style="font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.35)">Balances</div>
+      <sc-for list="{{ balances }}" as="b" hint-placeholder-count="3">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span style="font-size:12.5px;color:rgba(255,255,255,.6)">{{ b.name }}</span>
+          <span style="font-family:'JetBrains Mono',monospace;font-size:12px">{{ b.amount }}</span>
+        </div>
+      </sc-for>
+    </div>
+  </aside>
+
+  <!-- CENTER -->
+  <main style="overflow-y:auto;padding:0 34px 30px">
+
+    <sc-if value="{{ isNew }}" hint-placeholder-val="{{ true }}">
+      <div style="max-width:640px">
+        <div style="position:sticky;top:0;z-index:10;background:#0b0b0c;padding:30px 0 14px;margin-bottom:8px;box-shadow:0 10px 12px -12px rgba(0,0,0,.9)">
+          <div style="font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.12em;color:rgba(255,255,255,.4);margin-bottom:6px">STEP {{ stepNum }} / 4</div>
+          <h1 style="margin:0 0 16px;font-size:22px;font-weight:600;letter-spacing:-.01em">{{ stepTitle }}</h1>
+          <div style="display:flex;gap:8px;align-items:stretch">
+            <input value="{{ searchValue }}" onChange="{{ onSearch }}" placeholder="{{ searchPlaceholder }}" style="flex:1;background:#101012;border:1px solid rgba(255,255,255,.12);border-radius:8px;color:#f2f2f0;font-family:inherit;font-size:13.5px;padding:11px 14px;outline:none" style-focus="border-color:rgba(255,255,255,.4)">
+            <sc-if value="{{ showSort }}" hint-placeholder-val="{{ false }}">
+              <button onClick="{{ toggleSort }}" style="display:flex;align-items:center;gap:6px;background:none;border:1px solid rgba(255,255,255,.14);color:rgba(255,255,255,.6);font-family:inherit;font-size:11.5px;padding:0 14px;border-radius:8px;cursor:pointer;white-space:nowrap" style-hover="color:#f2f2f0;border-color:rgba(255,255,255,.4)">Price {{ sortArrow }}</button>
+            </sc-if>
+          </div>
+        </div>
+
+        <!-- Step 1: providers -->
+        <sc-if value="{{ onStep1 }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <sc-for list="{{ providerRows }}" as="p" hint-placeholder-count="5">
+              <div onClick="{{ p.onClick }}" style="{{ p.style }}">
+                <span style="{{ p.dotStyle }}"></span>
+                <span style="font-size:14.5px;font-weight:500;flex:1">{{ p.name }}</span>
+                <sc-if value="{{ p.connected }}" hint-placeholder-val="{{ true }}">
+                  <span style="font-family:'JetBrains Mono',monospace;font-size:12.5px;opacity:.75">{{ p.balance }}</span>
+                </sc-if>
+                <sc-if value="{{ p.disconnected }}" hint-placeholder-val="{{ false }}">
+                  <button onClick="{{ p.onConnect }}" style="background:none;border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.6);font-family:inherit;font-size:11.5px;padding:5px 10px;border-radius:6px;cursor:pointer" style-hover="color:#f2f2f0;border-color:rgba(255,255,255,.5)">Connect →</button>
+                </sc-if>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+
+        <!-- Step 2: services -->
+        <sc-if value="{{ onStep2 }}" hint-placeholder-val="{{ false }}">
+          <sc-if value="{{ loadingServices }}" hint-placeholder-val="{{ false }}">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+              <sc-for list="{{ skel8 }}" as="k" hint-placeholder-count="8">
+                <div style="height:56px;background:linear-gradient(90deg,rgba(255,255,255,.05) 25%,rgba(255,255,255,.1) 50%,rgba(255,255,255,.05) 75%);background-size:200% 100%;animation:sk 1.4s linear infinite;border-radius:8px"></div>
+              </sc-for>
+            </div>
+          </sc-if>
+          <sc-if value="{{ readyServices }}" hint-placeholder-val="{{ false }}">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+              <sc-for list="{{ serviceRows }}" as="s" hint-placeholder-count="8">
+                <div onClick="{{ s.onClick }}" style="{{ s.style }}">
+                  <span style="{{ s.monoStyle }}">{{ s.letter }}</span>
+                  <span style="font-size:14px;font-weight:500">{{ s.name }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+        </sc-if>
+
+        <!-- Step 3: countries -->
+        <sc-if value="{{ onStep3 }}" hint-placeholder-val="{{ false }}">
+          <sc-if value="{{ loadingCountries }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <sc-for list="{{ skel8 }}" as="k" hint-placeholder-count="8">
+                <div style="height:50px;background:linear-gradient(90deg,rgba(255,255,255,.05) 25%,rgba(255,255,255,.1) 50%,rgba(255,255,255,.05) 75%);background-size:200% 100%;animation:sk 1.4s linear infinite;border-radius:8px"></div>
+              </sc-for>
+            </div>
+          </sc-if>
+          <sc-if value="{{ readyCountries }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <sc-for list="{{ countryRows }}" as="c" hint-placeholder-count="8">
+                <div onClick="{{ c.onClick }}" style="{{ c.style }}">
+                  <span style="{{ c.codeStyle }}">{{ c.code }}</span>
+                  <span style="font-size:14px;font-weight:500;flex:1">{{ c.name }}</span>
+                  <span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:rgba(255,255,255,.45)">{{ c.dial }}</span>
+                  <span style="font-family:'JetBrains Mono',monospace;font-size:13px;min-width:56px;text-align:right">{{ c.price }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+        </sc-if>
+
+        <!-- Step 4: offers -->
+        <sc-if value="{{ onStep4 }}" hint-placeholder-val="{{ false }}">
+          <sc-if value="{{ loadingOffers }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <sc-for list="{{ skel8 }}" as="k" hint-placeholder-count="8">
+                <div style="height:44px;background:linear-gradient(90deg,rgba(255,255,255,.05) 25%,rgba(255,255,255,.1) 50%,rgba(255,255,255,.05) 75%);background-size:200% 100%;animation:sk 1.4s linear infinite;border-radius:8px"></div>
+              </sc-for>
+            </div>
+          </sc-if>
+          <sc-if value="{{ readyOffers }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;flex-direction:column;gap:20px;padding-bottom:96px">
+              <sc-for list="{{ offerGroups }}" as="g" hint-placeholder-count="3">
+                <div style="display:flex;flex-direction:column;gap:8px">
+                  <div style="display:flex;align-items:baseline;justify-content:space-between;padding:0 2px">
+                    <span style="font-size:13px;font-weight:600">{{ g.name }}</span>
+                    <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:rgba(255,255,255,.4)">{{ g.totalLabel }}</span>
+                  </div>
+                  <sc-for list="{{ g.tiers }}" as="t" hint-placeholder-count="2">
+                    <div onClick="{{ t.onClick }}" style="{{ t.style }}">
+                      <span style="{{ t.dotStyle }}"></span>
+                      <span style="font-family:'JetBrains Mono',monospace;font-size:13.5px;font-weight:600">{{ t.priceLabel }}</span>
+                      <span style="{{ t.countStyle }}">{{ t.countLabel }}</span>
+                      <sc-if value="{{ t.isFav }}" hint-placeholder-val="{{ false }}">
+                        <button onClick="{{ t.onFav }}" style="{{ t.favStyle }}">★</button>
+                      </sc-if>
+                      <sc-if value="{{ t.notFav }}" hint-placeholder-val="{{ false }}">
+                        <button onClick="{{ t.onFav }}" style="{{ t.favStyle }}">☆</button>
+                      </sc-if>
+                    </div>
+                  </sc-for>
+                </div>
+              </sc-for>
+            </div>
+            <sc-if value="{{ canRequest }}" hint-placeholder-val="{{ false }}">
+              <div style="position:sticky;bottom:0;margin:0 -4px;background:linear-gradient(transparent,#0b0b0c 30%);padding:24px 4px 4px">
+                <div style="display:flex;align-items:center;gap:14px;background:#151517;border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:14px 16px">
+                  <div style="display:flex;flex-direction:column;gap:2px;flex:1;min-width:0">
+                    <span style="font-size:13.5px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ summaryLine }}</span>
+                    <span style="font-size:11.5px;color:rgba(255,255,255,.45)">via {{ summaryProvider }}</span>
+                  </div>
+                  <span style="font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:600">{{ summaryPrice }}</span>
+                  <button onClick="{{ requestNumber }}" style="background:#f2f2f0;color:#0b0b0c;border:none;font-family:inherit;font-size:13.5px;font-weight:600;padding:11px 18px;border-radius:8px;cursor:pointer;white-space:nowrap" style-hover="background:#ffffff">Request number</button>
+                </div>
+              </div>
+            </sc-if>
+          </sc-if>
+        </sc-if>
+      </div>
+    </sc-if>
+
+    <!-- FAVORITES -->
+    <sc-if value="{{ isFavs }}" hint-placeholder-val="{{ false }}">
+      <div style="max-width:640px;padding-top:30px">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.12em;color:rgba(255,255,255,.4);margin-bottom:6px">FAVORITES</div>
+        <h1 style="margin:0 0 6px;font-size:22px;font-weight:600;letter-spacing:-.01em">Saved combinations</h1>
+        <p style="margin:0 0 24px;font-size:13px;color:rgba(255,255,255,.45)">One click to request a number for a saved provider · service · country.</p>
+        <sc-if value="{{ noFavs }}" hint-placeholder-val="{{ false }}">
+          <div style="border:1px dashed rgba(255,255,255,.14);border-radius:10px;padding:28px 16px;text-align:center;color:rgba(255,255,255,.35);font-size:12.5px">No favorites yet.<br>Star an offer on step 4 to save it here.</div>
+        </sc-if>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <sc-for list="{{ favRows }}" as="f" hint-placeholder-count="2">
+            <div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px 12px;padding:13px 16px;border:1px solid rgba(255,255,255,.1);border-radius:9px;background:#101012">
+              <span style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;flex:none;width:32px;height:24px;display:flex;align-items:center;justify-content:center;border-radius:5px;background:rgba(255,255,255,.08)">{{ f.code }}</span>
+              <span style="display:flex;flex-direction:column;gap:2px;flex:1;min-width:160px">
+                <span style="font-size:14px;font-weight:500">{{ f.line }}</span>
+                <span style="font-size:11.5px;color:rgba(255,255,255,.45)">{{ f.via }}</span>
+              </span>
+              <span style="display:flex;align-items:center;gap:12px;flex:none;margin-left:auto">
+                <span style="font-family:'JetBrains Mono',monospace;font-size:13px">{{ f.price }}</span>
+                <button onClick="{{ f.onRequest }}" style="background:#f2f2f0;color:#0b0b0c;border:none;font-family:inherit;font-size:12.5px;font-weight:600;padding:9px 14px;border-radius:7px;cursor:pointer;white-space:nowrap" style-hover="background:#ffffff">Request</button>
+                <button onClick="{{ f.onRemove }}" style="background:none;border:none;color:rgba(255,255,255,.5);cursor:pointer;font-size:15px;padding:2px 4px;line-height:1" style-hover="color:#f2f2f0">★</button>
+              </span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- SETTINGS -->
+    <sc-if value="{{ isSettings }}" hint-placeholder-val="{{ false }}">
+      <div style="max-width:640px;padding-top:30px">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.12em;color:rgba(255,255,255,.4);margin-bottom:6px">SETTINGS</div>
+        <h1 style="margin:0 0 6px;font-size:22px;font-weight:600;letter-spacing:-.01em">Providers</h1>
+        <p style="margin:0 0 24px;font-size:13px;color:rgba(255,255,255,.45)">Connect a provider with its API key to request numbers through it.</p>
+        <div style="font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.35);margin-bottom:10px">Behavior</div>
+        <div style="border:1px solid rgba(255,255,255,.1);border-radius:10px;background:#101012;margin-bottom:28px;display:flex;flex-direction:column">
+          <sc-for list="{{ prefRows }}" as="pr" hint-placeholder-count="3">
+            <div onClick="{{ pr.onToggle }}" style="{{ pr.rowStyle }}">
+              <span style="display:flex;flex-direction:column;gap:2px;flex:1">
+                <span style="font-size:13.5px;font-weight:500">{{ pr.label }}</span>
+                <span style="font-size:11.5px;color:rgba(255,255,255,.45)">{{ pr.hint }}</span>
+              </span>
+              <span style="{{ pr.trackStyle }}"><span style="{{ pr.knobStyle }}"></span></span>
+            </div>
+          </sc-for>
+        </div>
+        <div style="font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.35);margin-bottom:10px">Providers</div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <sc-for list="{{ settingRows }}" as="p" hint-placeholder-count="5">
+            <div style="border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:16px 18px;display:flex;flex-direction:column;gap:12px;background:#101012">
+              <div style="display:flex;align-items:center;gap:10px">
+                <span style="{{ p.dotStyle }}"></span>
+                <span style="font-size:14.5px;font-weight:600;flex:1">{{ p.name }}</span>
+                <sc-if value="{{ p.connected }}" hint-placeholder-val="{{ true }}">
+                  <span style="font-family:'JetBrains Mono',monospace;font-size:12.5px;opacity:.75">{{ p.balance }}</span>
+                  <button onClick="{{ p.onDisconnect }}" style="background:none;border:none;color:rgba(255,255,255,.4);font-family:inherit;font-size:12px;cursor:pointer;padding:2px" style-hover="color:#ff7a7a">Disconnect</button>
+                </sc-if>
+              </div>
+              <sc-if value="{{ p.connected }}" hint-placeholder-val="{{ true }}">
+                <div style="font-family:'JetBrains Mono',monospace;font-size:12px;color:rgba(255,255,255,.4)">API key · {{ p.maskedKey }}</div>
+              </sc-if>
+              <sc-if value="{{ p.connecting }}" hint-placeholder-val="{{ false }}">
+                <div style="height:38px;background:linear-gradient(90deg,rgba(255,255,255,.05) 25%,rgba(255,255,255,.1) 50%,rgba(255,255,255,.05) 75%);background-size:200% 100%;animation:sk 1.4s linear infinite;border-radius:7px"></div>
+              </sc-if>
+              <sc-if value="{{ p.showForm }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex;gap:8px">
+                  <input value="{{ p.keyValue }}" onChange="{{ p.onKeyChange }}" placeholder="Paste API key" style="flex:1;background:#0b0b0c;border:1px solid rgba(255,255,255,.14);border-radius:7px;color:#f2f2f0;font-family:'JetBrains Mono',monospace;font-size:12.5px;padding:10px 12px;outline:none" style-focus="border-color:rgba(255,255,255,.4)">
+                  <button onClick="{{ p.onConnect }}" style="background:#f2f2f0;color:#0b0b0c;border:none;font-family:inherit;font-size:13px;font-weight:600;padding:0 16px;border-radius:7px;cursor:pointer" style-hover="background:#ffffff">Connect</button>
+                </div>
+              </sc-if>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </sc-if>
+  </main>
+
+  <!-- RIGHT: ACTIVE NUMBERS -->
+  <aside style="border-left:1px solid rgba(255,255,255,.08);overflow-y:auto;padding:22px 18px;display:flex;flex-direction:column;gap:12px;background:#0d0d0f">
+    <div style="display:flex;align-items:baseline;justify-content:space-between;padding:0 4px">
+      <span style="font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.35)">Active numbers</span>
+      <span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:rgba(255,255,255,.5)">{{ numberCount }}</span>
+    </div>
+    <sc-if value="{{ noNumbers }}" hint-placeholder-val="{{ false }}">
+      <div style="border:1px dashed rgba(255,255,255,.14);border-radius:10px;padding:28px 16px;text-align:center;color:rgba(255,255,255,.35);font-size:12.5px">No active numbers.<br>Request one on the left.</div>
+    </sc-if>
+    <sc-for list="{{ numberCards }}" as="n" hint-placeholder-count="3">
+      <div style="{{ n.cardStyle }}">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="{{ n.phoneStyle }}">{{ n.phone }}</span>
+          <sc-if value="{{ n.hasPhone }}" hint-placeholder-val="{{ true }}">
+            <button onClick="{{ n.onCopyPhone }}" style="{{ n.copyBtnStyle }}">{{ n.copyPhoneLabel }}</button>
+          </sc-if>
+          <sc-if value="{{ n.dismissible }}" hint-placeholder-val="{{ false }}">
+            <button onClick="{{ n.onDismiss }}" style="{{ n.dismissStyle }}">✕</button>
+          </sc-if>
+        </div>
+        <div style="{{ n.metaStyle }}">{{ n.meta }}</div>
+
+        <sc-if value="{{ n.isRequesting }}" hint-placeholder-val="{{ false }}">
+          <div style="margin-top:12px;height:14px;width:70%;background:linear-gradient(90deg,rgba(255,255,255,.05) 25%,rgba(255,255,255,.1) 50%,rgba(255,255,255,.05) 75%);background-size:200% 100%;animation:sk 1.4s linear infinite;border-radius:5px"></div>
+          <div style="margin-top:8px;font-size:11.5px;color:rgba(255,255,255,.4)">Requesting number…</div>
+        </sc-if>
+
+        <sc-if value="{{ n.isWaiting }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-top:12px">
+            <span style="font-size:12px;color:rgba(255,255,255,.55);animation:blink 2.4s ease infinite">Waiting for SMS</span>
+            <span style="font-family:'JetBrains Mono',monospace;font-size:12.5px">{{ n.timeLeft }}</span>
+          </div>
+          <div style="height:3px;background:rgba(255,255,255,.09);border-radius:2px;margin-top:8px;overflow:hidden">
+            <div style="{{ n.barStyle }}"></div>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px">
+            <button onClick="{{ n.onCancel }}" disabled="{{ n.cancelDisabled }}" style="{{ n.cancelStyle }}">{{ n.cancelLabel }}</button>
+            <span style="font-family:'JetBrains Mono',monospace;font-size:11.5px;color:rgba(255,255,255,.4)">{{ n.price }}</span>
+          </div>
+          <sc-if value="{{ n.hasCancelNote }}" hint-placeholder-val="{{ false }}">
+            <div style="margin-top:6px;font-size:11px;color:rgba(255,255,255,.4)">{{ n.cancelNote }}</div>
+          </sc-if>
+        </sc-if>
+
+        <sc-if value="{{ n.isReceived }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;align-items:center;gap:10px;margin-top:12px">
+            <span style="{{ n.codeStyle }}">{{ n.code }}</span>
+            <button onClick="{{ n.onCopyCode }}" style="{{ n.copyBtnStyle }}">{{ n.copyCodeLabel }}</button>
+            <span style="font-family:'JetBrains Mono',monospace;font-size:11.5px;color:rgba(255,255,255,.4);margin-left:auto">{{ n.price }}</span>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ n.isExpired }}" hint-placeholder-val="{{ false }}">
+          <div style="margin-top:12px;font-size:12px;color:rgba(255,255,255,.4)">Expired · no SMS received</div>
+        </sc-if>
+
+        <sc-if value="{{ n.isCancelled }}" hint-placeholder-val="{{ false }}">
+          <div style="margin-top:12px;font-size:12px;color:rgba(255,255,255,.4)">Cancelled · {{ n.price }} refunded</div>
+        </sc-if>
+      </div>
+    </sc-for>
+  </aside>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;codeDelaySec&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:6,&quot;min&quot;:2,&quot;max&quot;:20,&quot;step&quot;:1,&quot;unit&quot;:&quot;s&quot;,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Simulation&quot;},&quot;failRatePct&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:15,&quot;min&quot;:0,&quot;max&quot;:100,&quot;step&quot;:5,&quot;unit&quot;:&quot;%&quot;,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Simulation&quot;},&quot;invertReceived&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Style&quot;}}">
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.SERVICES = ['Telegram','WhatsApp','Google','Instagram','Discord','Amazon','Uber','PayPal','TikTok','Twitter'];
+    this.COUNTRIES = [
+      {name:'United States',code:'US',dial:'+1'},{name:'United Kingdom',code:'GB',dial:'+44'},
+      {name:'Netherlands',code:'NL',dial:'+31'},{name:'Poland',code:'PL',dial:'+48'},
+      {name:'Indonesia',code:'ID',dial:'+62'},{name:'India',code:'IN',dial:'+91'},
+      {name:'Ukraine',code:'UA',dial:'+380'},{name:'Vietnam',code:'VN',dial:'+84'},
+      {name:'Philippines',code:'PH',dial:'+63'},{name:'Kazakhstan',code:'KZ',dial:'+7'}
+    ];
+    this.seq = 10;
+    const now = Date.now();
+    this.state = {
+      screen:'new', step:1, provider:null, service:null, country:null,
+      loadingServices:false, loadingCountries:false,
+      snack:null, copied:null, keyInputs:{}, connectingId:null, search:'', sortDir:null, offer:null, loadingOffers:false,
+      prefs:{sound:true, autoCopy:false, notify:true, stripDial:false},
+      favorites:[
+        {provider:'Hero SMS', service:'Telegram', country:{name:'United States',code:'US',dial:'+1'}, operator:'Any operator', price:0.1569},
+        {provider:'5SIM', service:'WhatsApp', country:{name:'Netherlands',code:'NL',dial:'+31'}, operator:'Vodafone', price:0.4412}
+      ],
+      providers:[
+        {name:'Hero SMS', connected:true, balance:12.4, key:'hk_9f3a2b1c8d'},
+        {name:'5SIM', connected:true, balance:3.85, key:'5s_77e1c0aa42'},
+        {name:'Tiger SMS', connected:true, balance:27.1, key:'tg_b52d99e013'},
+        {name:'Grizzly SMS', connected:false, balance:0, key:''},
+        {name:'SMSBower', connected:false, balance:0, key:''}
+      ],
+      numbers:[
+        {id:1, provider:'Hero SMS', service:'Telegram', country:this.COUNTRIES[0], phone:'+1 415 830 2247', price:0.42, status:'received', code:'39 284'},
+        {id:2, provider:'5SIM', service:'WhatsApp', country:this.COUNTRIES[2], phone:'+31 6 4471 0392', price:0.87, status:'waiting', expiresAt: now + 741000, total: 900000},
+        {id:3, provider:'Tiger SMS', service:'Google', country:this.COUNTRIES[5], phone:'+91 90042 17765', price:0.11, status:'expired'}
+      ]
+    };
+  }
+  componentDidMount() {
+    this.timer = setInterval(() => {
+      let changed = false;
+      const numbers = this.state.numbers.map(n => {
+        if (n.status === 'waiting' && n.expiresAt <= Date.now()) { changed = true; return {...n, status:'expired'}; }
+        return n;
+      });
+      if (changed) this.setState({numbers}); else this.forceUpdate();
+    }, 1000);
+  }
+  componentWillUnmount() { clearInterval(this.timer); this.timer = null; }
+  hash(s) { let h = 7; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0; return h; }
+  priceFor(p, s, c) { return 0.05 + (this.hash(p + s + c) % 140) / 100; }
+  fmt(v) { return '$' + v.toFixed(2); }
+  toast(msg, kind) {
+    const id = Math.random();
+    this.snackId = id;
+    this.setState({snack:{msg, kind}});
+    setTimeout(() => { if (this.snackId === id) this.setState({snack:null}); }, 4200);
+  }
+  patchNumber(id, patch) {
+    this.setState(st => ({numbers: st.numbers.map(n => n.id === id ? {...n, ...patch} : n)}));
+  }
+  copy(text, key) {
+    try { navigator.clipboard.writeText(text); } catch (e) {}
+    this.setState({copied:key});
+    setTimeout(() => { if (this.state.copied === key) this.setState({copied:null}); }, 1600);
+  }
+  pickProvider(p) {
+    if (!p.connected) { this.toast(p.name + ' is not connected. Add its API key in Settings.', 'info'); return; }
+    this.setState({provider:p.name, service:null, country:null, step:2, loadingServices:true, screen:'new', search:''});
+    setTimeout(() => this.setState({loadingServices:false}), 950);
+  }
+  pickService(s) {
+    this.setState({service:s, country:null, step:3, loadingCountries:true, search:''});
+    setTimeout(() => this.setState({loadingCountries:false}), 950);
+  }
+  pickCountry(c) {
+    this.setState({country:c, offer:null, step:4, loadingOffers:true, search:''});
+    setTimeout(() => this.setState({loadingOffers:false}), 950);
+  }
+  offersFor(provider, service, country) {
+    const base = this.priceFor(provider, service, country.name);
+    const pool = ['Vodafone', 'Orange', 'Lycamobile', 'NOS', 'Lebara', 'T-Mobile'];
+    const h = this.hash(provider + service + country.name);
+    const ops = [{name:'Any operator', tiers:4, mult:1}];
+    for (let i = 0; i < 3; i++) {
+      const op = pool[(h >>> (i * 4)) % pool.length];
+      if (!ops.some(o => o.name === op)) ops.push({name:op, tiers:1 + ((h >>> (i * 3)) % 3), mult:0.85 + ((h >>> i) % 30) / 100});
+    }
+    return ops.map((o, oi) => {
+      const tiers = [];
+      for (let k = 0; k < o.tiers; k++) {
+        const price = base * o.mult * (0.72 + k * 0.21);
+        const count = Math.max(3, (this.hash(o.name + k + service) % 4000) >>> (oi + k));
+        tiers.push({price: Math.round(price * 10000) / 10000, count});
+      }
+      return {name: o.name, total: tiers.reduce((a, t) => a + t.count, 0), tiers};
+    }).filter(o => o.name && o.tiers.length > 0);
+  }
+  favKey(f) { return f.provider + '|' + f.service + '|' + f.country.code + '|' + f.operator + '|' + f.price; }
+  toggleFav(fav) {
+    const key = this.favKey(fav);
+    this.setState(st => {
+      const has = st.favorites.some(f => this.favKey(f) === key);
+      return {favorites: has ? st.favorites.filter(f => this.favKey(f) !== key) : [...st.favorites, fav]};
+    });
+  }
+  requestNumber() {
+    const {provider, service, country, offer} = this.state;
+    this.requestFor(provider, service, country, offer ? offer.price : null);
+  }
+  requestFor(provider, service, country, priceOverride) {
+    const price = priceOverride != null ? priceOverride : this.priceFor(provider, service, country.name);
+    const id = ++this.seq;
+    const failRate = this.props.failRatePct ?? 15;
+    const codeDelay = (this.props.codeDelaySec ?? 6) * 1000;
+    this.setState(st => ({numbers:[{id, provider, service, country, price, status:'requesting'}, ...st.numbers]}));
+    setTimeout(() => {
+      if (Math.random() * 100 < failRate) {
+        this.setState(st => ({numbers: st.numbers.filter(n => n.id !== id)}));
+        this.toast(provider + ': no numbers available for ' + service + ' · ' + country.name + '. Try another country.', 'error');
+        return;
+      }
+      const digits = String(this.hash(id + service) % 90000000 + 10000000);
+      const phone = country.dial + ' ' + digits.slice(0,3) + ' ' + digits.slice(3,6) + ' ' + digits.slice(6);
+      this.patchNumber(id, {phone, status:'waiting', expiresAt: Date.now() + 900000, total: 900000});
+      setTimeout(() => {
+        const cur = this.state.numbers.find(n => n.id === id);
+        if (cur && cur.status === 'waiting') {
+          const code = String(this.hash('c' + id) % 90000 + 10000);
+          const pretty = code.slice(0,2) + ' ' + code.slice(2);
+          this.patchNumber(id, {status:'received', code: pretty});
+          if (this.state.prefs.notify) this.toast('Code received for ' + phone, 'success');
+          if (this.state.prefs.sound) this.beep();
+          if (this.state.prefs.autoCopy) { try { navigator.clipboard.writeText(code); } catch (e) {} }
+        }
+      }, codeDelay * (0.7 + Math.random() * 0.8));
+    }, 1100 + Math.random() * 700);
+  }
+  cancelNumber(n) {
+    if (n.cancelableAt && n.cancelableAt > Date.now()) return;
+    this.patchNumber(n.id, {cancelPending:true});
+    setTimeout(() => {
+      const r = Math.random();
+      if (r < 0.5) {
+        this.patchNumber(n.id, {status:'cancelled', cancelPending:false});
+        this.toast('Number cancelled · ' + this.fmt(n.price) + ' refunded to ' + n.provider, 'success');
+      } else if (r < 0.8) {
+        this.patchNumber(n.id, {cancelPending:false});
+        this.toast(n.provider + ': this number cannot be cancelled.', 'error');
+      } else {
+        this.patchNumber(n.id, {cancelPending:false, cancelableAt: Date.now() + 120000});
+        this.toast(n.provider + ': number can be cancelled in 2:00.', 'info');
+      }
+    }, 900);
+  }
+  connectProvider(name) {
+    const key = (this.state.keyInputs[name] || '').trim();
+    if (key.length < 8) { this.toast('API key looks too short. Check it in your ' + name + ' dashboard.', 'error'); return; }
+    this.setState({connectingId:name});
+    setTimeout(() => {
+      const ok = key.toLowerCase().indexOf('bad') === -1;
+      if (!ok) { this.setState({connectingId:null}); this.toast(name + ': invalid API key.', 'error'); return; }
+      this.setState(st => ({
+        connectingId:null,
+        providers: st.providers.map(p => p.name === name ? {...p, connected:true, key, balance: (this.hash(key) % 4000) / 100} : p)
+      }));
+      this.toast(name + ' connected.', 'success');
+    }, 1300);
+  }
+  beep() {
+    try {
+      const ctx = this.audioCtx || (this.audioCtx = new (window.AudioContext || window.webkitAudioContext)());
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.type = 'sine'; o.frequency.value = 880;
+      g.gain.setValueAtTime(0.12, ctx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.35);
+      o.connect(g); g.connect(ctx.destination);
+      o.start(); o.stop(ctx.currentTime + 0.36);
+    } catch (e) {}
+  }
+  mmss(ms) { const s = Math.max(0, Math.floor(ms / 1000)); return Math.floor(s/60) + ':' + String(s%60).padStart(2,'0'); }
+  renderVals() {
+    const st = this.state, now = Date.now();
+    const navBase = 'text-align:left;font-family:inherit;font-size:13.5px;font-weight:500;padding:9px 12px;border-radius:7px;border:none;cursor:pointer;';
+    const navOn = navBase + 'background:#f2f2f0;color:#0b0b0c;';
+    const navOff = navBase + 'background:transparent;color:rgba(255,255,255,.55);';
+    const dot = (c) => 'width:7px;height:7px;border-radius:50%;flex:none;background:' + c + ';';
+    const stepDefs = [
+      {n:1, label:'Provider', value: st.provider},
+      {n:2, label:'Service', value: st.service},
+      {n:3, label:'Country', value: st.country ? st.country.name : null},
+      {n:4, label:'Offer', value: st.offer ? this.fmt(st.offer.price) + ' · ' + st.offer.operator : null}
+    ];
+    const steps = stepDefs.map(d => {
+      const active = st.screen === 'new' && st.step === d.n;
+      const reachable = d.n === 1 || (d.n === 2 && st.provider) || (d.n === 3 && st.service) || (d.n === 4 && st.country);
+      return {
+        num: '0' + d.n, label: d.label, value: d.value || '—',
+        boxStyle: 'display:flex;align-items:center;gap:11px;text-align:left;border:none;font-family:inherit;padding:10px 10px;border-radius:8px;cursor:' + (reachable ? 'pointer' : 'default') + ';background:' + (active ? 'rgba(255,255,255,.07)' : 'transparent') + ';color:' + (reachable ? '#f2f2f0' : 'rgba(255,255,255,.3)') + ';',
+        numStyle: 'font-family:JetBrains Mono,monospace;font-size:11px;flex:none;width:26px;height:26px;display:flex;align-items:center;justify-content:center;border-radius:6px;' + (active ? 'background:#f2f2f0;color:#0b0b0c;font-weight:600;' : d.value ? 'border:1px solid rgba(255,255,255,.35);' : 'border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.4);'),
+        valStyle: 'font-size:11.5px;font-family:JetBrains Mono,monospace;color:' + (d.value ? 'rgba(255,255,255,.6)' : 'rgba(255,255,255,.25)') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:150px;',
+        onClick: () => { if (reachable) this.setState({screen:'new', step:d.n, search:''}); }
+      };
+    });
+    const q = st.search.trim().toLowerCase();
+    const match = (s) => !q || s.toLowerCase().indexOf(q) !== -1;
+    const rowBase = 'display:flex;align-items:center;gap:12px;padding:13px 16px;border:1px solid rgba(255,255,255,.1);border-radius:9px;cursor:pointer;background:#101012;';
+    const providerRows = st.providers.filter(p => match(p.name)).map(p => ({
+      name: p.name, connected: p.connected, disconnected: !p.connected,
+      balance: this.fmt(p.balance),
+      dotStyle: dot(p.connected ? '#8affc1' : 'rgba(255,255,255,.2)'),
+      style: p.name === st.provider ? rowBase.replace('#101012', '#f2f2f0') + 'color:#0b0b0c;border-color:#f2f2f0;' : rowBase + (p.connected ? '' : 'opacity:.55;'),
+      onClick: () => this.pickProvider(p),
+      onConnect: (e) => { e.stopPropagation(); this.setState({screen:'settings'}); }
+    }));
+    const serviceRows = this.SERVICES.filter(match).map(s => ({
+      name: s, letter: s[0],
+      monoStyle: 'width:30px;height:30px;flex:none;display:flex;align-items:center;justify-content:center;border-radius:7px;font-family:JetBrains Mono,monospace;font-size:13px;font-weight:600;' + (s === st.service ? 'background:#0b0b0c;color:#f2f2f0;' : 'background:rgba(255,255,255,.08);'),
+      style: (s === st.service ? rowBase.replace('#101012', '#f2f2f0') + 'color:#0b0b0c;border-color:#f2f2f0;' : rowBase) + 'padding:12px 14px;',
+      onClick: () => this.pickService(s)
+    }));
+    let countryList = (st.provider && st.service) ? this.COUNTRIES.filter(c => match(c.name) || match(c.code)) : [];
+    if (st.sortDir) {
+      countryList = countryList.slice().sort((a, b) => {
+        const d = this.priceFor(st.provider, st.service, a.name) - this.priceFor(st.provider, st.service, b.name);
+        return st.sortDir === 'asc' ? d : -d;
+      });
+    }
+    const countryRows = countryList.map(c => {
+      const sel = st.country && st.country.code === c.code;
+      return {
+        name: c.name, code: c.code, dial: c.dial,
+        price: this.fmt(this.priceFor(st.provider, st.service, c.name)),
+        codeStyle: 'font-family:JetBrains Mono,monospace;font-size:11px;font-weight:600;flex:none;width:32px;height:24px;display:flex;align-items:center;justify-content:center;border-radius:5px;' + (sel ? 'background:#0b0b0c;color:#f2f2f0;' : 'background:rgba(255,255,255,.08);'),
+        style: (sel ? rowBase.replace('#101012', '#f2f2f0') + 'color:#0b0b0c;border-color:#f2f2f0;' : rowBase) + 'padding:12px 14px;',
+        onClick: () => this.pickCountry(c)
+      };
+    });
+    const stepTitles = {1:'Choose a provider', 2:'Choose a service', 3:'Choose a country', 4:'Choose an offer'};
+    const offerGroups = (st.step === 4 && st.provider && st.service && st.country && !st.loadingOffers)
+      ? this.offersFor(st.provider, st.service, st.country).filter(o => match(o.name)).map(o => ({
+          name: o.name,
+          totalLabel: o.total.toLocaleString() + ' available',
+          tiers: o.tiers.map(t => {
+            const sel = st.offer && st.offer.operator === o.name && st.offer.price === t.price;
+            const fav = {provider:st.provider, service:st.service, country:st.country, operator:o.name, price:t.price};
+            const isFav = st.favorites.some(f => this.favKey(f) === this.favKey(fav));
+            return {
+              priceLabel: '$' + t.price.toFixed(4),
+              countLabel: t.count.toLocaleString() + ' numbers',
+              isFav, notFav: !isFav,
+              favStyle: 'background:none;border:none;cursor:pointer;font-size:14px;padding:2px 4px;line-height:1;flex:none;color:' + (sel ? 'rgba(0,0,0,.6)' : 'rgba(255,255,255,.5)') + ';',
+              onFav: (e) => { e.stopPropagation(); this.toggleFav(fav); },
+              style: 'display:flex;align-items:center;gap:12px;padding:11px 14px;border:1px solid ' + (sel ? '#f2f2f0;background:#f2f2f0;color:#0b0b0c;' : 'rgba(255,255,255,.1);background:#101012;') + 'border-radius:8px;cursor:pointer;',
+              dotStyle: 'width:6px;height:6px;border-radius:50%;flex:none;background:' + (sel ? '#0b0b0c' : 'rgba(255,255,255,.3)') + ';',
+              countStyle: 'font-size:11.5px;margin-left:auto;color:' + (sel ? 'rgba(0,0,0,.55)' : 'rgba(255,255,255,.45)') + ';',
+              onClick: () => this.setState({offer:{operator:o.name, price:t.price}})
+            };
+          })
+        }))
+      : [];
+    const copyBtn = 'background:none;border:1px solid rgba(255,255,255,.18);color:rgba(255,255,255,.65);font-family:inherit;font-size:10.5px;padding:3px 8px;border-radius:5px;cursor:pointer;flex:none;';
+    const numberCards = st.numbers.map(n => {
+      const invert = (this.props.invertReceived ?? true) && n.status === 'received';
+      const left = n.expiresAt ? n.expiresAt - now : 0;
+      const pct = n.total ? Math.max(0, Math.min(100, left / n.total * 100)) : 0;
+      const cancelWait = n.cancelableAt && n.cancelableAt > now;
+      return {
+        key: n.id,
+        cardStyle: 'border-radius:10px;padding:14px 15px;border:1px solid ' + (invert ? '#f2f2f0;background:#f2f2f0;color:#0b0b0c;' : 'rgba(255,255,255,.1);background:#121214;') + ((n.status === 'expired' || n.status === 'cancelled') ? 'opacity:.55;' : ''),
+        phone: n.phone || '+·· ··· ··· ···',
+        hasPhone: !!n.phone,
+        phoneStyle: 'font-family:JetBrains Mono,monospace;font-size:14.5px;font-weight:600;letter-spacing:.01em;' + (n.phone ? '' : 'color:rgba(255,255,255,.3);'),
+        meta: n.service + ' · ' + n.country.name + ' · ' + n.provider,
+        metaStyle: 'font-size:11.5px;margin-top:3px;color:' + (invert ? 'rgba(0,0,0,.5)' : 'rgba(255,255,255,.45)') + ';',
+        price: this.fmt(n.price),
+        isRequesting: n.status === 'requesting', isWaiting: n.status === 'waiting',
+        isReceived: n.status === 'received', isExpired: n.status === 'expired', isCancelled: n.status === 'cancelled',
+        dismissible: n.status === 'expired' || n.status === 'cancelled' || n.status === 'received',
+        dismissStyle: 'background:none;border:none;cursor:pointer;font-size:13px;padding:2px;margin-left:auto;color:' + (invert ? 'rgba(0,0,0,.4)' : 'rgba(255,255,255,.35)') + ';',
+        timeLeft: this.mmss(left),
+        barStyle: 'height:100%;background:#f2f2f0;border-radius:2px;width:' + pct.toFixed(1) + '%;transition:width 1s linear;',
+        code: n.code,
+        codeStyle: 'font-family:JetBrains Mono,monospace;font-size:20px;font-weight:600;letter-spacing:.06em;' + (invert ? 'color:#0b0b0c;' : 'background:#f2f2f0;color:#0b0b0c;padding:4px 10px;border-radius:6px;'),
+        copyBtnStyle: copyBtn + (invert ? 'border-color:rgba(0,0,0,.25);color:rgba(0,0,0,.65);' : ''),
+        copyPhoneLabel: st.copied === n.id + '-p' ? 'Copied' : 'Copy',
+        copyCodeLabel: st.copied === n.id + '-c' ? 'Copied' : 'Copy code',
+        onCopyPhone: () => {
+          let t = n.phone;
+          if (this.state.prefs.stripDial && n.country && t.indexOf(n.country.dial) === 0) t = t.slice(n.country.dial.length).trim();
+          this.copy(t, n.id + '-p');
+        },
+        onCopyCode: () => this.copy(n.code.replace(' ', ''), n.id + '-c'),
+        cancelLabel: n.cancelPending ? 'Cancelling…' : cancelWait ? 'Cancel in ' + this.mmss(n.cancelableAt - now) : 'Cancel & refund',
+        cancelDisabled: !!n.cancelPending || !!cancelWait,
+        cancelStyle: 'background:none;border:1px solid rgba(255,255,255,.16);color:rgba(255,255,255,.6);font-family:inherit;font-size:11.5px;padding:6px 11px;border-radius:6px;cursor:' + (n.cancelPending || cancelWait ? 'default;opacity:.5;' : 'pointer;'),
+        onCancel: () => this.cancelNumber(n),
+        hasCancelNote: false, cancelNote: '',
+        onDismiss: () => this.setState(s2 => ({numbers: s2.numbers.filter(x => x.id !== n.id)}))
+      };
+    });
+    const settingRows = st.providers.map(p => ({
+      name: p.name, connected: p.connected,
+      connecting: st.connectingId === p.name,
+      showForm: !p.connected && st.connectingId !== p.name,
+      balance: this.fmt(p.balance),
+      maskedKey: p.key ? p.key.slice(0,3) + '••••••••' + p.key.slice(-4) : '',
+      dotStyle: dot(p.connected ? '#8affc1' : 'rgba(255,255,255,.2)'),
+      keyValue: st.keyInputs[p.name] || '',
+      onKeyChange: (e) => this.setState(s2 => ({keyInputs: {...s2.keyInputs, [p.name]: e.target.value}})),
+      onConnect: () => this.connectProvider(p.name),
+      onDisconnect: () => {
+        this.setState(s2 => ({providers: s2.providers.map(x => x.name === p.name ? {...x, connected:false, key:'', balance:0} : x)}));
+        this.toast(p.name + ' disconnected.', 'info');
+      }
+    }));
+    const prefDefs = [
+      {key:'sound', label:'Sound when code is received', hint:'Short chime on every incoming code'},
+      {key:'autoCopy', label:'Auto-copy received code', hint:'Code goes straight to the clipboard'},
+      {key:'notify', label:'Show snackbar on code received', hint:'Errors are always shown'},
+      {key:'stripDial', label:'Copy number without country code', hint:'e.g. 6 4471 0392 instead of +31 6 4471 0392'}
+    ];
+    const prefRows = prefDefs.map((d, i) => {
+      const on = st.prefs[d.key];
+      return {
+        label: d.label, hint: d.hint,
+        rowStyle: 'display:flex;align-items:center;gap:14px;padding:13px 16px;cursor:pointer;' + (i < prefDefs.length - 1 ? 'border-bottom:1px solid rgba(255,255,255,.07);' : ''),
+        trackStyle: 'flex:none;width:36px;height:20px;border-radius:10px;padding:2px;transition:background .15s;background:' + (on ? '#f2f2f0' : 'rgba(255,255,255,.14)') + ';display:flex;',
+        knobStyle: 'width:16px;height:16px;border-radius:50%;transition:transform .15s;background:' + (on ? '#0b0b0c' : 'rgba(255,255,255,.6)') + ';transform:translateX(' + (on ? 16 : 0) + 'px);',
+        onToggle: () => this.setState(s2 => ({prefs: {...s2.prefs, [d.key]: !s2.prefs[d.key]}}))
+      };
+    });
+    const snackColors = {error:'#ff5c5c', success:'#1fbf7a', info:'#0b0b0c'};
+    return {
+      isNew: st.screen === 'new', isSettings: st.screen === 'settings', isFavs: st.screen === 'favorites',
+      goNew: () => this.setState({screen:'new'}),
+      goSettings: () => this.setState({screen:'settings'}),
+      goFavs: () => this.setState({screen:'favorites'}),
+      navNewStyle: st.screen === 'new' ? navOn : navOff,
+      navSettingsStyle: st.screen === 'settings' ? navOn : navOff,
+      navFavsStyle: st.screen === 'favorites' ? navOn : navOff,
+      noFavs: st.favorites.length === 0,
+      favRows: st.favorites.map(f => ({
+        line: f.service + ' · ' + f.country.name,
+        via: 'via ' + f.provider + ' · ' + f.operator,
+        code: f.country.code,
+        price: '$' + f.price.toFixed(4),
+        onRequest: () => this.requestFor(f.provider, f.service, f.country, f.price),
+        onRemove: () => this.toggleFav(f)
+      })),
+      steps,
+      balances: st.providers.filter(p => p.connected).map(p => ({name: p.name, amount: this.fmt(p.balance)})),
+      stepNum: st.step, stepTitle: stepTitles[st.step],
+      searchValue: st.search,
+      onSearch: (e) => this.setState({search: e.target.value}),
+      searchPlaceholder: st.step === 1 ? 'Search providers' : st.step === 2 ? 'Search services' : st.step === 3 ? 'Search countries' : 'Search operators',
+      showSort: st.step === 3 && !st.loadingCountries,
+      toggleSort: () => this.setState(s2 => ({sortDir: s2.sortDir === 'asc' ? 'desc' : s2.sortDir === 'desc' ? null : 'asc'})),
+      sortArrow: st.sortDir === 'desc' ? '↓' : st.sortDir === 'asc' ? '↑' : '↕',
+      onStep1: st.step === 1, onStep2: st.step === 2, onStep3: st.step === 3, onStep4: st.step === 4,
+      loadingOffers: st.loadingOffers, readyOffers: !st.loadingOffers, offerGroups,
+      loadingServices: st.loadingServices, readyServices: !st.loadingServices,
+      loadingCountries: st.loadingCountries, readyCountries: !st.loadingCountries,
+      skel8: [1,2,3,4,5,6,7,8],
+      providerRows, serviceRows, countryRows,
+      canRequest: !!st.offer,
+      summaryLine: st.service + ' · ' + (st.country ? st.country.name : ''),
+      summaryProvider: st.provider + (st.offer ? ' · ' + st.offer.operator : ''),
+      summaryPrice: st.offer ? '$' + st.offer.price.toFixed(4) : '',
+      requestNumber: () => this.requestNumber(),
+      numberCards, numberCount: String(st.numbers.length).padStart(2,'0'),
+      noNumbers: st.numbers.length === 0,
+      settingRows, prefRows,
+      snackVisible: !!st.snack,
+      snackMsg: st.snack ? st.snack.msg : '',
+      snackDotStyle: 'width:8px;height:8px;border-radius:50%;flex:none;background:' + (st.snack ? snackColors[st.snack.kind] : '#0b0b0c') + ';',
+      dismissSnack: () => this.setState({snack:null})
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,11 @@
+[package]
+name = "sms-client"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+eframe = "0.36.1"
+egui = "0.36.1"
+
+[workspace]
+members = ["crates/sms-activate"]
