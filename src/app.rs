@@ -21,7 +21,7 @@ use crate::backend::{
 use crate::config::Config;
 use crate::domain::{
     DEFAULT_NUMBER_TTL, Favorite, Number, NumberStatus, PrefKey, Prefs, fmt_usd, fmt_usd4,
-    phone_for_clipboard,
+    parse_phone, phone_display, phone_for_clipboard,
 };
 use crate::worker::{Timers, Worker};
 
@@ -759,6 +759,11 @@ impl App {
                 n.status = NumberStatus::Waiting;
                 n.remote_id = Some(activation.id);
                 n.phone = Some(with_plus(&activation.phone));
+                if n.dial.is_none()
+                    && let Some(parts) = parse_phone(&activation.phone)
+                {
+                    n.dial = Some(format!("+{}", parts.country_code));
+                }
                 n.price = activation.cost.unwrap_or(n.price);
                 n.expires_at = Some(now + DEFAULT_NUMBER_TTL);
                 n.total = DEFAULT_NUMBER_TTL;
@@ -855,7 +860,7 @@ impl App {
         let n = &mut self.numbers[idx];
         n.status = NumberStatus::Received;
         n.code = Some(code.clone());
-        let phone = n.phone.clone().unwrap_or_default();
+        let phone = n.phone.as_deref().map(phone_display).unwrap_or_default();
         if self.prefs.notify {
             self.toast(format!("Code received for {phone}"), SnackKind::Success);
         }
@@ -1879,7 +1884,7 @@ mod tests {
         app.fast_forward(Duration::from_secs(13));
         assert_eq!(app.numbers[0].status, NumberStatus::Received);
         assert_eq!(app.numbers[0].code.as_deref(), Some("39284"));
-        assert_eq!(app.snack_text(), Some("Code received for +12025550123"));
+        assert_eq!(app.snack_text(), Some("Code received for +1 202 555 0123"));
         assert_eq!(app.snack_kind(), Some(SnackKind::Success));
         // No further polls once received.
         app.fast_forward(Duration::from_secs(60));
@@ -2285,11 +2290,11 @@ mod tests {
         app.tick();
         let id = app.numbers[0].id;
         app.apply(Action::CopyPhone(id));
-        assert_eq!(app.take_clipboard().as_deref(), Some("+12025550123"));
+        assert_eq!(app.take_clipboard().as_deref(), Some("+1 202 555 0123"));
         assert!(app.copied_is(&format!("{id}-p")));
         app.apply(Action::TogglePref(PrefKey::StripDial));
         app.apply(Action::CopyPhone(id));
-        assert_eq!(app.take_clipboard().as_deref(), Some("2025550123"));
+        assert_eq!(app.take_clipboard().as_deref(), Some("202 555 0123"));
         mock.set_status(ActivationStatus::Ok {
             code: "39 284".into(),
         });

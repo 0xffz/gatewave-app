@@ -65,9 +65,74 @@ pub fn masked_key(key: &str) -> String {
     format!("{head}••••••••{tail}")
 }
 
-/// What goes to the clipboard for a phone number. With the "strip dial" pref the known dialling
-/// prefix (e.g. `+31`) is removed; when the prefix is unknown only a leading `+` is dropped.
+/// A phone number as understood by libphonenumber (`phonenumber` crate).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PhoneParts {
+    /// `+14158302247`
+    pub e164: String,
+    /// `+1 415 830 2247` — international format, groups separated by spaces.
+    pub international: String,
+    /// `415 830 2247` — the international grouping without the country code.
+    pub national: String,
+    /// Country calling code (`1`, `31`, `380` …).
+    pub country_code: u16,
+}
+
+/// Parses a provider phone number. Providers send E.164 digits with or without the leading `+`.
+pub fn parse_phone(raw: &str) -> Option<PhoneParts> {
+    let digits: String = raw.chars().filter(|c| c.is_ascii_digit()).collect();
+    if digits.is_empty() {
+        return None;
+    }
+    let number = phonenumber::parse(None, format!("+{digits}")).ok()?;
+    let country_code = number.country().code();
+    let international = number
+        .format()
+        .mode(phonenumber::Mode::International)
+        .to_string()
+        .replace('-', " ");
+    let prefix = format!("+{country_code}");
+    let national = international
+        .strip_prefix(&prefix)
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(str::to_owned)
+        .unwrap_or_else(|| digits[prefix.len() - 1..].to_owned());
+    Some(PhoneParts {
+        e164: number.format().mode(phonenumber::Mode::E164).to_string(),
+        international,
+        national,
+        country_code,
+    })
+}
+
+/// How a number is shown: libphonenumber's international grouping, or the raw value with a
+/// leading `+` when it cannot be parsed.
+pub fn phone_display(raw: &str) -> String {
+    match parse_phone(raw) {
+        Some(p) => p.international,
+        None => {
+            let t = raw.trim();
+            if t.starts_with('+') {
+                t.to_owned()
+            } else {
+                format!("+{t}")
+            }
+        }
+    }
+}
+
+/// What goes to the clipboard: the international number, or — with the "strip dial" pref — the
+/// national part without the country code (`6 4471 0392` for `+31 6 4471 0392`). Falls back to
+/// trimming a known dialling prefix (or just the `+`) when the number cannot be parsed.
 pub fn phone_for_clipboard(phone: &str, dial: Option<&str>, strip_dial: bool) -> String {
+    if let Some(p) = parse_phone(phone) {
+        return if strip_dial {
+            p.national
+        } else {
+            p.international
+        };
+    }
     if !strip_dial {
         return phone.to_string();
     }
@@ -330,23 +395,47 @@ mod tests {
     }
 
     #[test]
+    fn phone_parsing_and_display() {
+        let p = parse_phone("14158302247").unwrap();
+        assert_eq!(p.country_code, 1);
+        assert_eq!(p.e164, "+14158302247");
+        assert_eq!(p.international, "+1 415 830 2247");
+        assert_eq!(p.national, "415 830 2247");
+        let nl = parse_phone("+31644710392").unwrap();
+        assert_eq!(nl.international, "+31 6 44710392");
+        assert_eq!(nl.national, "6 44710392");
+        let ua = parse_phone("380501234567").unwrap();
+        assert_eq!(ua.country_code, 380);
+        assert!(ua.national.starts_with("50"));
+        assert_eq!(phone_display("+1 415 830 2247"), "+1 415 830 2247");
+        assert_eq!(phone_display("garbage"), "+garbage");
+        assert!(parse_phone("").is_none());
+    }
+
+    #[test]
     fn clipboard_phone_rules() {
         assert_eq!(
-            phone_for_clipboard("+31 6 4471 0392", Some("+31"), true),
-            "6 4471 0392"
+            phone_for_clipboard("+31644710392", None, true),
+            "6 44710392"
         );
         assert_eq!(
-            phone_for_clipboard("+31 6 4471 0392", None, true),
-            "31 6 4471 0392"
+            phone_for_clipboard("31644710392", Some("+31"), false),
+            "+31 6 44710392"
         );
         assert_eq!(
-            phone_for_clipboard("+31 6 4471 0392", Some("+31"), false),
-            "+31 6 4471 0392"
+            phone_for_clipboard("447350690992", None, true),
+            "7350 690992"
         );
         assert_eq!(
-            phone_for_clipboard("447350690992", Some("+44"), true),
-            "7350690992"
+            phone_for_clipboard("12025550123", None, true),
+            "202 555 0123"
         );
+        // Unparseable numbers fall back to prefix trimming.
+        assert_eq!(
+            phone_for_clipboard("+999 12 34", Some("+999"), true),
+            "12 34"
+        );
+        assert_eq!(phone_for_clipboard("+999 12 34", None, false), "+999 12 34");
     }
 
     #[test]

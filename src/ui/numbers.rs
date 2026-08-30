@@ -6,7 +6,7 @@ use egui::{Align, CornerRadius, Frame, Layout, Margin, ScrollArea, Stroke, Ui, v
 
 use super::widgets::*;
 use crate::app::{Action, App};
-use crate::domain::{Number, NumberStatus, fmt_usd, mmss};
+use crate::domain::{Number, NumberStatus, fmt_usd, mmss, phone_display};
 use crate::theme::*;
 
 pub fn draw(ui: &mut Ui, app: &App, out: &mut Vec<Action>) {
@@ -86,7 +86,13 @@ fn card(ui: &mut Ui, app: &App, n: &Number, out: &mut Vec<Action>) {
                 ui.spacing_mut().item_spacing = vec2(8.0, 0.0);
                 match &n.phone {
                     Some(phone) => {
-                        text_ls(ui, phone, mono_semi(14.5), op(fg, opacity), 0.15);
+                        text_ls(
+                            ui,
+                            phone_display(phone),
+                            mono_semi(14.5),
+                            op(fg, opacity),
+                            0.15,
+                        );
                         let copied = app.copied_is(&format!("{}-p", n.id));
                         if copy_btn(copied, "number")
                             .opacity(opacity)
