@@ -1228,6 +1228,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "gatewave"
+version = "0.1.0"
+dependencies = [
+ "eframe",
+ "egui",
+ "phonenumber",
+ "serde",
+ "serde_json",
+ "sms-activate",
+]
+
+[[package]]
 name = "gethostname"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3164,18 +3176,6 @@ dependencies = [
  "serde_json",
  "thiserror 2.0.20",
  "ureq",
-]
-
-[[package]]
-name = "sms-client"
-version = "0.1.0"
-dependencies = [
- "eframe",
- "egui",
- "phonenumber",
- "serde",
- "serde_json",
- "sms-activate",
 ]
 
 [[package]]

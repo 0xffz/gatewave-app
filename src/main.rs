@@ -1,4 +1,4 @@
-//! Number Desk — egui desktop client for buying SMS-verification numbers.
+//! Gatewave — egui desktop client for buying SMS-verification numbers.
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
@@ -23,15 +23,15 @@ fn app_icon() -> egui::IconData {
 fn main() -> eframe::Result {
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
-            .with_title("Number Desk")
-            .with_app_id("number-desk")
+            .with_title("Gatewave")
+            .with_app_id("gatewave")
             .with_icon(app_icon())
             .with_inner_size([1380.0, 860.0])
             .with_min_inner_size([1100.0, 640.0]),
         ..Default::default()
     };
     eframe::run_native(
-        "Number Desk",
+        "Gatewave",
         options,
         Box::new(|cc| {
             theme::install_fonts(&cc.egui_ctx);

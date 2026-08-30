@@ -16,8 +16,8 @@ pub struct DebugPanel {
 impl Default for DebugPanel {
     fn default() -> Self {
         Self {
-            // Start open when NUMBER_DESK_DEBUG_PANEL=1 (handy for screenshots).
-            open: std::env::var("NUMBER_DESK_DEBUG_PANEL").is_ok_and(|v| v == "1"),
+            // Start open when GATEWAVE_DEBUG_PANEL=1 (handy for screenshots).
+            open: std::env::var("GATEWAVE_DEBUG_PANEL").is_ok_and(|v| v == "1"),
             font_scale: theme::font_scale(),
             zoom: 1.0,
             debug_on_hover: false,

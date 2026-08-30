@@ -1,4 +1,4 @@
-# Number Desk
+# Gatewave
 
 A Rust/[egui](https://github.com/emilk/egui) desktop client for buying SMS-verification numbers from
 Hero SMS, 5SIM, Tiger SMS and SMSBower. The UI follows the Claude Design file in
@@ -21,15 +21,15 @@ SMSBOWER_API_KEY=…
 ```
 
 On every launch, any provider that has no key in the config file gets it from the environment / `.env`
-and the key is stored in `~/.config/number-desk/config.json` (`$XDG_CONFIG_HOME` is honoured, and
-`NUMBER_DESK_CONFIG=/path/to/file.json` overrides the location). Keys can also be pasted into
+and the key is stored in `~/.config/gatewave/config.json` (`$XDG_CONFIG_HOME` is honoured, and
+`GATEWAVE_CONFIG=/path/to/file.json` overrides the location). Keys can also be pasted into
 **Settings → Providers**; they are stored only after the provider accepts them. **Disconnect** removes a
 key from the config, but while it is still in `.env` it is picked up again at the next start — delete it
 from `.env` too to make the disconnect stick. The config file also keeps preferences, favorites and the
 active numbers, so a restart resumes polling of numbers that are still waiting for an SMS.
 
-Every provider connection is logged on stderr at startup, e.g. `number-desk: Hero SMS connected, balance 12.51`
-or `number-desk: 5SIM: invalid API key`.
+Every provider connection is logged on stderr at startup, e.g. `gatewave: Hero SMS connected, balance 12.51`
+or `gatewave: 5SIM: invalid API key`.
 
 ## What the app does
 

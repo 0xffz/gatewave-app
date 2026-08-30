@@ -22,9 +22,9 @@ pub fn draw(ui: &mut Ui, app: &App, out: &mut Vec<Action>) {
                 top: 3,
                 bottom: 3,
             })
-            .show(ui, |ui| text_ls(ui, "N/D", mono_semi(MONO_LOGO), BG, 0.96));
+            .show(ui, |ui| text_ls(ui, "GW", mono_semi(MONO_LOGO), BG, 0.96));
         ui.add_space(8.0);
-        text_ls(ui, "Number Desk", sans_med(SANS_BODY), FG, 0.26);
+        text_ls(ui, "Gatewave", sans_med(SANS_BODY), FG, 0.26);
     });
     ui.add_space(22.0);
 

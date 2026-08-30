@@ -1,7 +1,7 @@
 //! On-disk state: API keys, preferences, favorites and the active numbers.
 //!
-//! Stored as JSON at `$NUMBER_DESK_CONFIG`, else `$XDG_CONFIG_HOME/number-desk/config.json`,
-//! else `~/.config/number-desk/config.json`. Keys missing from the file are seeded from the
+//! Stored as JSON at `$GATEWAVE_CONFIG`, else `$XDG_CONFIG_HOME/gatewave/config.json`,
+//! else `~/.config/gatewave/config.json`. Keys missing from the file are seeded from the
 //! environment (`HERO_SMS_API_KEY` …) and from a `.env` file in the working directory.
 
 use std::collections::BTreeMap;
@@ -26,7 +26,7 @@ pub struct Config {
 
 impl Config {
     pub fn path() -> PathBuf {
-        if let Ok(p) = std::env::var("NUMBER_DESK_CONFIG")
+        if let Ok(p) = std::env::var("GATEWAVE_CONFIG")
             && !p.is_empty()
         {
             return PathBuf::from(p);
@@ -41,12 +41,28 @@ impl Config {
                     .map(|h| Path::new(&h).join(".config"))
             })
             .unwrap_or_else(|| PathBuf::from("."));
-        base.join("number-desk").join("config.json")
+        base.join("gatewave").join("config.json")
     }
 
     /// Loads the config, falling back to defaults when the file is missing or unreadable.
+    /// A config written by the app under its previous name (`number-desk`) is picked up when
+    /// the new location is still empty; the next save moves it over.
     pub fn load() -> Self {
-        Self::load_from(&Self::path())
+        let path = Self::path();
+        if !path.exists()
+            && let Some(legacy) = Self::legacy_path(&path)
+            && legacy.exists()
+        {
+            return Self::load_from(&legacy);
+        }
+        Self::load_from(&path)
+    }
+
+    /// `…/gatewave/config.json` → `…/number-desk/config.json`; `None` for explicit paths.
+    fn legacy_path(path: &Path) -> Option<PathBuf> {
+        let dir = path.parent()?;
+        (dir.file_name()? == "gatewave")
+            .then(|| dir.with_file_name("number-desk").join("config.json"))
     }
 
     pub fn load_from(path: &Path) -> Self {
@@ -55,7 +71,7 @@ impl Config {
                 Ok(cfg) => cfg,
                 Err(e) => {
                     eprintln!(
-                        "number-desk: ignoring unreadable config {}: {e}",
+                        "gatewave: ignoring unreadable config {}: {e}",
                         path.display()
                     );
                     Self::default()
@@ -132,7 +148,7 @@ mod tests {
 
     #[test]
     fn round_trips_through_disk() {
-        let dir = std::env::temp_dir().join(format!("number-desk-test-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("gatewave-test-{}", std::process::id()));
         let path = dir.join("nested").join("config.json");
         let mut cfg = Config::default();
         cfg.keys.insert(ProviderKind::HeroSms, "hk_test".into());
@@ -151,6 +167,29 @@ mod tests {
     }
 
     #[test]
+    fn legacy_config_dir_is_read_until_the_new_one_exists() {
+        let base = std::env::temp_dir().join(format!("gatewave-legacy-{}", std::process::id()));
+        let new = base.join("gatewave").join("config.json");
+        let old = base.join("number-desk").join("config.json");
+        assert_eq!(Config::legacy_path(&new), Some(old.clone()));
+        assert_eq!(Config::legacy_path(Path::new("/tmp/custom.json")), None);
+        let cfg = Config {
+            next_number_id: 7,
+            ..Default::default()
+        };
+        cfg.save_to(&old).unwrap();
+        assert!(!new.exists());
+        // Same lookup `load()` does, with the paths spelled out.
+        let loaded = if new.exists() {
+            Config::load_from(&new)
+        } else {
+            Config::load_from(&Config::legacy_path(&new).unwrap())
+        };
+        assert_eq!(loaded, cfg);
+        let _ = fs::remove_dir_all(&base);
+    }
+
+    #[test]
     fn seeds_only_missing_keys() {
         let mut cfg = Config::default();
         cfg.keys.insert(ProviderKind::FiveSim, "existing".into());
@@ -166,7 +205,7 @@ mod tests {
 
     #[test]
     fn dotenv_parsing() {
-        let dir = std::env::temp_dir().join(format!("number-desk-dotenv-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("gatewave-dotenv-{}", std::process::id()));
         fs::create_dir_all(&dir).unwrap();
         let p = dir.join(".env");
         fs::write(&p, "# comment\nA=1\nexport B=\"two\"\nC='3'\nbad line\n").unwrap();

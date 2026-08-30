@@ -281,7 +281,7 @@ impl App {
         #[allow(unused_mut)]
         let mut app = app;
         #[cfg(debug_assertions)]
-        match std::env::var("NUMBER_DESK_DEBUG_SCREEN").as_deref() {
+        match std::env::var("GATEWAVE_DEBUG_SCREEN").as_deref() {
             Ok("favorites") => app.screen = Screen::Favorites,
             Ok("settings") => app.screen = Screen::Settings,
             _ => {}
@@ -470,7 +470,7 @@ impl App {
         };
         if let Err(e) = result {
             let path = self.config_path.clone().unwrap_or_else(Config::path);
-            eprintln!("number-desk: could not save {}: {e}", path.display());
+            eprintln!("gatewave: could not save {}: {e}", path.display());
         }
     }
 
@@ -608,7 +608,7 @@ impl App {
             Event::CancelDone { local_id, result } => self.cancel_done(local_id, result),
             Event::CompleteDone { local_id, result } => {
                 if let Err(e) = result {
-                    eprintln!("number-desk: could not complete activation #{local_id}: {e}");
+                    eprintln!("gatewave: could not complete activation #{local_id}: {e}");
                 }
             }
             Event::ActiveLoaded { kind, key, result } => self.active_loaded(kind, key, result),
@@ -640,10 +640,7 @@ impl App {
                 slot.balance = Some(balance);
                 slot.error = None;
                 if was_connecting {
-                    eprintln!(
-                        "number-desk: {} connected, balance {balance:.2}",
-                        kind.name()
-                    );
+                    eprintln!("gatewave: {} connected, balance {balance:.2}", kind.name());
                 }
                 if self.config.keys.get(&kind) != Some(&key) {
                     // The key is only stored once the provider accepts it.
@@ -668,9 +665,9 @@ impl App {
                 }
                 slot.error = Some(e.to_string());
                 if was_connecting {
-                    eprintln!("number-desk: {msg}");
+                    eprintln!("gatewave: {msg}");
                 } else {
-                    eprintln!("number-desk: {}: balance refresh failed: {e}", kind.name());
+                    eprintln!("gatewave: {}: balance refresh failed: {e}", kind.name());
                 }
                 let toast = match e {
                     ApiError::BadKey => format!("{msg}."),
@@ -694,7 +691,7 @@ impl App {
             Ok(list) => list,
             Err(e) => {
                 eprintln!(
-                    "number-desk: {}: could not list active activations: {e}",
+                    "gatewave: {}: could not list active activations: {e}",
                     kind.name()
                 );
                 return;
@@ -865,7 +862,7 @@ impl App {
             }
             Err(e) => {
                 eprintln!(
-                    "number-desk: {}: status poll failed: {e}",
+                    "gatewave: {}: status poll failed: {e}",
                     self.numbers[idx].provider.name()
                 );
                 reschedule(self, POLL_RETRY);
@@ -915,7 +912,7 @@ impl App {
                 self.persist();
             }
             Err(e) if automatic => eprintln!(
-                "number-desk: {}: could not cancel expired activation #{local_id}: {e}",
+                "gatewave: {}: could not cancel expired activation #{local_id}: {e}",
                 kind.name()
             ),
             Err(ApiError::EarlyCancelDenied) => {
@@ -1498,16 +1495,15 @@ pub mod testing {
     static COUNTER: AtomicU32 = AtomicU32::new(0);
 
     /// A private config location for the whole test process, so nothing ever touches
-    /// `~/.config/number-desk`. Set once, before any thread reads the environment.
+    /// `~/.config/gatewave`. Set once, before any thread reads the environment.
     pub fn scratch_config_path() -> PathBuf {
         static INIT: Once = Once::new();
         INIT.call_once(|| {
-            let dir =
-                std::env::temp_dir().join(format!("number-desk-tests-{}", std::process::id()));
+            let dir = std::env::temp_dir().join(format!("gatewave-tests-{}", std::process::id()));
             let _ = std::fs::create_dir_all(&dir);
             // SAFETY: called exactly once, guarded by `Once`, before any test thread has started
-            // reading `NUMBER_DESK_CONFIG` (every test goes through this function first).
-            unsafe { std::env::set_var("NUMBER_DESK_CONFIG", dir.join("config.json")) };
+            // reading `GATEWAVE_CONFIG` (every test goes through this function first).
+            unsafe { std::env::set_var("GATEWAVE_CONFIG", dir.join("config.json")) };
             *SCRATCH_DIR.lock().unwrap() = Some(dir);
         });
         let dir = SCRATCH_DIR.lock().unwrap().clone().unwrap();

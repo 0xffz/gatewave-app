@@ -1,4 +1,4 @@
-//! Palette, typography and global egui style for Number Desk.
+//! Palette, typography and global egui style for Gatewave.
 
 use std::sync::atomic::{AtomicU32, Ordering};
 
@@ -108,7 +108,7 @@ pub const MONO_PRICE: f32 = 13.5;
 pub const MONO_PHONE: f32 = 14.5;
 /// the summary-bar total.
 pub const MONO_TOTAL: f32 = 15.0;
-/// the N/D logo.
+/// the GW logo.
 pub const MONO_LOGO: f32 = 16.0;
 /// the received code.
 pub const MONO_CODE: f32 = 20.0;
