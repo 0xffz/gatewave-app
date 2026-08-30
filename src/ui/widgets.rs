@@ -658,6 +658,18 @@ pub fn clickable_row<R>(
     style: &RowStyle,
     content: impl FnOnce(&mut Ui) -> R,
 ) -> (Response, R) {
+    clickable_row_with(ui, salt, height, style, |ui, _hover| content(ui))
+}
+
+/// [`clickable_row`] whose content closure also receives the row's hover amount (0 → 1, animated),
+/// so children can follow the row's hover state (e.g. brighten their text).
+pub fn clickable_row_with<R>(
+    ui: &mut Ui,
+    salt: impl Hash + std::fmt::Debug,
+    height: f32,
+    style: &RowStyle,
+    content: impl FnOnce(&mut Ui, f32) -> R,
+) -> (Response, R) {
     let w = style.width.unwrap_or(ui.available_width());
     let sense = if style.clickable {
         Sense::click()
@@ -666,13 +678,15 @@ pub fn clickable_row<R>(
     };
     let (rect, mut resp) = ui.allocate_exact_size(vec2(w, height), sense);
     let (mut fill, mut border) = (style.fill, style.border);
+    let mut hover = 0.0;
     if style.clickable {
         resp = resp.on_hover_cursor(CursorIcon::PointingHand);
-        // Rows lift slightly on hover: dark rows get a faint wash and a brighter border, light
-        // (selected) rows go a touch whiter.
+        // Rows lift slightly on hover: dark rows get the same faint wash as buttons and a
+        // brighter border, light (selected) rows go a touch whiter.
         let t = ui
             .ctx()
             .animate_bool_with_time(resp.id, resp.hovered(), HOVER_ANIM);
+        hover = t;
         let (hover_fill, hover_border) = if lightness(style.fill) >= 0.5 {
             (lerp(style.fill, Color32::WHITE, 0.6), style.border)
         } else {
@@ -681,7 +695,7 @@ pub fn clickable_row<R>(
             } else {
                 lerp(style.border, white(0.28), 1.0)
             };
-            (lerp(style.fill, Color32::WHITE, 0.04), b)
+            (lerp(style.fill, Color32::WHITE, 0.06), b)
         };
         fill = lerp(style.fill, hover_fill, t);
         border = lerp(style.border, hover_border, t);
@@ -708,7 +722,7 @@ pub fn clickable_row<R>(
             .layout(Layout::left_to_right(Align::Center)),
     );
     child.spacing_mut().item_spacing = vec2(style.gap, 0.0);
-    let r = content(&mut child);
+    let r = content(&mut child, hover);
     (resp, r)
 }
 

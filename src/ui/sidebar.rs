@@ -62,49 +62,56 @@ pub fn draw(ui: &mut Ui, app: &App, out: &mut Vec<Action>) {
     let block_h = line_h(ui, &sans_med(SANS_BODY)) + 2.0 + line_h(ui, &mono(MONO_SM));
     let row_h = 20.0 + (block_h + NUDGE_UP).max(26.0);
     for s in app.steps() {
+        // Same grammar as the navigation buttons: active = inverted light row, reachable =
+        // quiet text that brightens on hover, unreachable = dimmed and inert. The badge and the
+        // value line follow the label.
         let style = RowStyle::base()
-            .fill(if s.active {
-                white(0.07)
-            } else {
-                Color32::TRANSPARENT
-            })
+            .fill(if s.active { FG } else { Color32::TRANSPARENT })
             .border(Color32::TRANSPARENT)
-            .radius(8)
-            .pad(10.0, 10.0)
+            .radius(7)
+            .pad(12.0, 10.0)
             .gap(11.0)
-            .clickable(s.reachable);
-        let has_value = s.value.is_some();
-        let (resp, _) = clickable_row(ui, ("step", s.num), row_h, &style, |ui| {
-            let (fill, border, fg, font) = if s.active {
-                (FG, Color32::TRANSPARENT, BG, mono_semi(MONO_XS))
-            } else if has_value {
-                (Color32::TRANSPARENT, white(0.35), FG, mono(MONO_XS))
+            .clickable(s.reachable && !s.active);
+        let (resp, _) = clickable_row_with(ui, ("step", s.num), row_h, &style, |ui, hover| {
+            let (label, value, badge_fill, badge_border, badge_fg) = if s.active {
+                (BG, black(0.55), BG, Color32::TRANSPARENT, FG)
+            } else if s.reachable {
+                let label = lerp(white(0.55), FG, hover);
+                (
+                    label,
+                    lerp(white(0.4), white(0.6), hover),
+                    Color32::TRANSPARENT,
+                    lerp(white(0.22), white(0.5), hover),
+                    label,
+                )
             } else {
-                (Color32::TRANSPARENT, white(0.15), white(0.4), mono(MONO_XS))
+                (
+                    white(0.3),
+                    white(0.22),
+                    Color32::TRANSPARENT,
+                    white(0.12),
+                    white(0.3),
+                )
             };
             badge(
                 ui,
                 &format!("0{}", s.num),
                 vec2(26.0, 26.0),
                 6,
-                fill,
-                border,
-                font,
-                fg,
+                badge_fill,
+                badge_border,
+                if s.active {
+                    mono_semi(MONO_XS)
+                } else {
+                    mono(MONO_XS)
+                },
+                badge_fg,
             );
             ui.vertical(|ui| {
                 ui.spacing_mut().item_spacing = vec2(0.0, 2.0);
-                text(
-                    ui,
-                    s.label,
-                    sans_med(SANS_BODY),
-                    if s.reachable { FG } else { white(0.3) },
-                );
-                let (val, col) = match &s.value {
-                    Some(v) => (v.clone(), white(0.6)),
-                    None => ("—".to_string(), white(0.25)),
-                };
-                text_trunc(ui, val, mono(MONO_SM), col, 150.0);
+                text(ui, s.label, sans_med(SANS_BODY), label);
+                let val = s.value.clone().unwrap_or_else(|| "—".to_string());
+                text_trunc(ui, val, mono(MONO_SM), value, 150.0);
                 ui.add_space(NUDGE_UP);
             });
         });
