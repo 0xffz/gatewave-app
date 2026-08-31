@@ -23,7 +23,7 @@ jobs:
       MACOSX_DEPLOYMENT_TARGET: "11.0"
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Install Rust targets
         run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
@@ -50,7 +50,7 @@ jobs:
             dist/Gatewave.app Gatewave-macos-universal.zip
 
       - name: Upload macOS artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: Gatewave-macos-universal
           path: Gatewave-macos-universal.zip
@@ -62,7 +62,7 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Build application
         run: cargo build --locked --release
@@ -72,7 +72,7 @@ jobs:
         run: Compress-Archive -Path target\release\gatewave.exe -DestinationPath Gatewave-windows-x86_64.zip
 
       - name: Upload Windows artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: Gatewave-windows-x86_64
           path: Gatewave-windows-x86_64.zip
@@ -90,7 +90,7 @@ jobs:
       contents: write
     steps:
       - name: Download packaged applications
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: Gatewave-*
           path: release
