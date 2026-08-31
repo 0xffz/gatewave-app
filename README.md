@@ -9,6 +9,10 @@ through the workspace crate `sms-activate`.
 cargo run
 ```
 
+On macOS, `make app` builds the release binary and wraps it into `dist/Gatewave.app` (icon, `Info.plist`,
+ad-hoc code signature; needs the Xcode command-line tools). `make open` launches it, `make install` copies it to
+`/Applications`.
+
 ## Setup
 
 Put your API keys in a git-ignored `.env` in the working directory (or export them):
