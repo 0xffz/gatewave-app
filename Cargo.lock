@@ -2049,7 +2049,7 @@ dependencies = [
 
 [[package]]
 name = "gatewave"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "futures",
  "gpui",
@@ -5558,7 +5558,7 @@ checksum = "dd538fb6910ac1099850255cf94a94df6551fbdd602454387d0adb2d1ca6dead"
 
 [[package]]
 name = "sms-activate"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "serde",
  "serde_json",
