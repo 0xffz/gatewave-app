@@ -1,479 +1,575 @@
 //! "New number" screen: 4-step wizard (provider → service → country → offer).
 
-use egui::{
-    Align, Color32, CornerRadius, Frame, Id, Layout, Margin, Rect, ScrollArea, Stroke, Ui, vec2,
+use gpui::prelude::FluentBuilder as _;
+use gpui::{
+    AnyElement, Context, Div, Focusable, InteractiveElement, IntoElement, ParentElement,
+    SharedString, Stateful, StatefulInteractiveElement, Styled, Window, div, linear_color_stop,
+    linear_gradient, px,
 };
+use gpui_component::input::Input;
+use gpui_component::scroll::ScrollableElement as _;
+use gpui_component::skeleton::Skeleton;
 
-use super::content_column;
+use super::Gatewave;
 use super::widgets::*;
-use crate::app::{Action, App, Screen, SortDir};
+use crate::app::{Action, Screen, SortDir};
 use crate::domain::{fmt_thousands, fmt_usd, fmt_usd4};
 use crate::theme::*;
 
-pub fn draw(ui: &mut Ui, app: &App, out: &mut Vec<Action>) {
-    content_column(ui, |ui| {
-        header(ui, app, out);
+/// Search box height: the body-lg line plus 11 px vertical padding and the 1 px borders.
+const INPUT_H: f32 = 42.0;
+/// Step 1 rows: 26 px chrome + the taller of the provider name and the Connect button.
+const PROVIDER_ROW_H: f32 = 50.0;
+/// Step 2 tiles: 24 px padding + the 30 px initial badge.
+const SERVICE_TILE_H: f32 = 54.0;
+/// Step 3 rows: 24 px padding + the 24 px country badge.
+const COUNTRY_ROW_H: f32 = 48.0;
+/// Step 4 tier rows: 22 px padding + the "N numbers" line.
+const TIER_H: f32 = 44.0;
 
-        let bar_h = if app.step == 4 && !app.loading_offers && app.offer.is_some() {
-            Some(summary_bar_height(ui))
-        } else {
-            None
+impl Gatewave {
+    pub(super) fn render_wizard(
+        &mut self,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
+        let has_bar = self.app.step == 4 && !self.app.loading_offers && self.app.offer.is_some();
+        let bottom = if has_bar { 8.0 } else { 30.0 };
+        // Four distinct `overflow_y_scrollbar` call sites so each step keeps its own scroll
+        // offset (the egui original salts the ScrollArea id with the step).
+        let list = match self.app.step {
+            1 => list_frame(1, self.step_providers(cx), bottom).overflow_y_scrollbar(),
+            2 => list_frame(2, self.step_services(cx), bottom).overflow_y_scrollbar(),
+            3 => list_frame(3, self.step_countries(cx), bottom).overflow_y_scrollbar(),
+            _ => list_frame(4, self.step_offers(cx), bottom).overflow_y_scrollbar(),
         };
-        let scroll_h = (ui.available_height() - bar_h.unwrap_or(0.0)).max(0.0);
-        ScrollArea::vertical()
-            .id_salt(("wizard", app.step))
-            .auto_shrink([false, false])
-            .max_height(scroll_h)
-            .show(ui, |ui| {
-                ui.spacing_mut().item_spacing = egui::Vec2::ZERO;
-                ui.set_width(ui.available_width());
-                match app.step {
-                    1 => step_providers(ui, app, out),
-                    2 => step_services(ui, app, out),
-                    3 => step_countries(ui, app, out),
-                    _ => step_offers(ui, app, out),
-                }
-                ui.add_space(if bar_h.is_some() { 8.0 } else { 30.0 });
-            });
-        if bar_h.is_some() {
-            summary_bar(ui, app, out);
-        }
-    });
-}
-
-fn header(ui: &mut Ui, app: &App, out: &mut Vec<Action>) {
-    ui.add_space(30.0);
-    text_ls(
-        ui,
-        format!("STEP {} / 4", app.step),
-        mono(MONO_XS),
-        white(0.4),
-        1.32,
-    );
-    ui.add_space(6.0);
-    text_ls(ui, app.step_title(), sans_semi(SANS_TITLE), FG, -0.22);
-    ui.add_space(16.0);
-
-    let font = sans(SANS_BODY_LG);
-    let input_h = input_height(ui, &font, 11.0);
-    ui.horizontal(|ui| {
-        ui.spacing_mut().item_spacing = vec2(8.0, 0.0);
-        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-            ui.spacing_mut().item_spacing = vec2(8.0, 0.0);
-            if app.step == 3 && !app.loading_countries {
-                let arrow = match app.sort_dir {
-                    Some(SortDir::Desc) => "↓",
-                    Some(SortDir::Asc) => "↑",
-                    None => "↕",
-                };
-                let r = Btn::new(format!("Price {arrow}"), mono(MONO_SM))
-                    .fg(white(0.6))
-                    .border(white(0.14))
-                    .hover_fg(FG)
-                    .hover_border(white(0.4))
-                    .pad(14.0, 0.0)
-                    .radius(8)
-                    .min_height(input_h)
-                    .show(ui);
-                if r.clicked() {
-                    out.push(Action::ToggleSort);
-                }
-            }
-            let mut s = app.search.clone();
-            let r = input(
-                ui,
-                Id::new("search"),
-                &mut s,
-                app.search_placeholder(),
-                font.clone(),
-                InputStyle {
-                    bg: ROW_BG,
-                    border: white(0.12),
-                    focus_border: white(0.4),
-                    radius: 8,
-                    pad: vec2(14.0, 11.0),
-                },
-            );
-            if r.changed() {
-                out.push(Action::SetSearch(s));
-            }
-        });
-    });
-    ui.add_space(14.0 + 8.0);
-}
-
-fn skeleton_list(ui: &mut Ui, h: f32) {
-    for _ in 0..8 {
-        skeleton(ui, vec2(ui.available_width(), h), 8);
-        ui.add_space(8.0);
+        div()
+            .flex()
+            .flex_col()
+            .size_full()
+            .child(self.wizard_header(window, cx))
+            .child(list)
+            .when(has_bar, |d| d.child(self.wizard_summary_bar(cx)))
+            .into_any_element()
     }
-}
 
-/// Lists can run to a thousand rows: rows scrolled out of view only reserve their space.
-fn row_visible(ui: &Ui, h: f32) -> bool {
-    let rect = Rect::from_min_size(ui.cursor().min, vec2(ui.available_width(), h));
-    ui.is_rect_visible(rect)
-}
-
-fn empty_hint(ui: &mut Ui, lines: &[&str]) {
-    dashed_box(ui, lines);
-}
-
-// ---------------------------------------------------------------------------
-// Step 1
-
-fn step_providers(ui: &mut Ui, app: &App, out: &mut Vec<Action>) {
-    let btn_h = line_h(ui, &sans(SANS_SMALL)) + 10.0;
-    let row_h = 26.0 + line_h(ui, &sans_med(SANS_ROW_LG)).max(btn_h);
-    for p in app.provider_rows() {
-        let kind = p.kind;
-        let selected = app.provider == Some(kind);
-        let fg = if selected { BG } else { FG };
-        let opacity = if !p.connected && !selected { 0.55 } else { 1.0 };
-        let style = if selected {
-            RowStyle::selected()
-        } else {
-            RowStyle::base()
-        }
-        .opacity(opacity);
-        let (resp, connect_clicked) = clickable_row(ui, ("provider", kind), row_h, &style, |ui| {
-            // The mint green is tuned for dark rows; the selected row is light, so use the
-            // darker "connected" green there.
-            let dot_color = match (p.connected, selected) {
-                (true, true) => GREEN_ON_LIGHT,
-                (true, false) => GREEN,
-                (false, _) => white(0.2),
-            };
-            dot(ui, 7.0, op(dot_color, opacity));
-            text(ui, p.name(), sans_med(SANS_ROW_LG), op(fg, opacity));
-            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                if p.connected {
-                    if let Some(balance) = p.balance {
-                        text(ui, fmt_usd(balance), mono(MONO_LG), op(fg, 0.75));
-                    }
-                    false
-                } else if p.connecting {
-                    text(ui, "Connecting…", sans(SANS_SMALL), op(white(0.6), opacity));
-                    false
-                } else {
-                    Btn::new("Connect ›", sans(SANS_SMALL))
-                        .fg(white(0.6))
-                        .border(white(0.2))
-                        .hover_fg(FG)
-                        .hover_border(white(0.5))
-                        .pad(10.0, 5.0)
-                        .radius(6)
-                        .opacity(opacity)
-                        .show(ui)
-                        .clicked()
-                }
-            })
-            .inner
-        });
-        if connect_clicked {
-            out.push(Action::GoScreen(Screen::Settings));
-        } else if resp.clicked() {
-            out.push(Action::PickProvider(kind));
-        }
-        ui.add_space(8.0);
+    /// "STEP x / 4" eyebrow, the step title and the search row (plus the price-sort toggle
+    /// on step 3).
+    fn wizard_header(&self, window: &Window, cx: &mut Context<Self>) -> Div {
+        let focused = self
+            .search_input
+            .read(cx)
+            .focus_handle(cx)
+            .is_focused(window);
+        let step = self.app.step;
+        div()
+            .flex_none()
+            .flex()
+            .flex_col()
+            .pt(px(30.0))
+            .child(
+                mono(MONO_XS)
+                    .text_color(white(0.4))
+                    .child(format!("STEP {step} / 4")),
+            )
+            .child(
+                div().pt(px(6.0)).child(
+                    sans_semi(SANS_TITLE)
+                        .text_color(FG)
+                        .child(self.app.step_title()),
+                ),
+            )
+            .child(
+                div()
+                    .pt(px(16.0))
+                    .flex()
+                    .flex_row()
+                    .items_center()
+                    .gap(px(8.0))
+                    .child(
+                        div()
+                            .flex_1()
+                            .h(px(INPUT_H))
+                            .px(px(14.0))
+                            .rounded(px(8.0))
+                            .bg(ROW_BG)
+                            .border_1()
+                            .border_color(if focused { white(0.4) } else { white(0.12) })
+                            .flex()
+                            .items_center()
+                            .child(
+                                Input::new(&self.search_input)
+                                    .appearance(false)
+                                    .w_full()
+                                    .font_family(SANS_FAMILY)
+                                    .text_size(px(SANS_BODY_LG)),
+                            ),
+                    )
+                    .when(step == 3 && !self.app.loading_countries, |d| {
+                        let arrow = match self.app.sort_dir {
+                            Some(SortDir::Desc) => "↓",
+                            Some(SortDir::Asc) => "↑",
+                            None => "↕",
+                        };
+                        d.child(
+                            Btn::new("sort", format!("Price {arrow}"))
+                                .mono(MONO_SM)
+                                .fg(white(0.6))
+                                .border(white(0.14))
+                                .hover_fg(FG)
+                                .hover_border(white(0.4))
+                                .pad(14.0, 0.0)
+                                .radius(8.0)
+                                .min_height(INPUT_H)
+                                .on_click(cx.listener(|this, _, window, cx| {
+                                    this.dispatch(Action::ToggleSort, window, cx);
+                                })),
+                        )
+                    }),
+            )
+            .child(div().h(px(22.0)))
     }
-}
 
-// ---------------------------------------------------------------------------
-// Step 2
+    // -----------------------------------------------------------------------
+    // Step 1
 
-fn step_services(ui: &mut Ui, app: &App, out: &mut Vec<Action>) {
-    let gap = 8.0;
-    let tile_w = (ui.available_width() - gap) / 2.0;
-    if app.loading_services {
-        for _ in 0..4 {
-            ui.horizontal(|ui| {
-                ui.spacing_mut().item_spacing = vec2(gap, 0.0);
-                skeleton(ui, vec2(tile_w, 56.0), 8);
-                skeleton(ui, vec2(tile_w, 56.0), 8);
-            });
-            ui.add_space(gap);
-        }
-        return;
-    }
-    let rows = app.service_rows();
-    if rows.is_empty() {
-        empty_hint(ui, &["No services match.", "Try another search."]);
-        return;
-    }
-    let tile_h = 24.0 + 30.0;
-    for pair in rows.chunks(2) {
-        if !row_visible(ui, tile_h) {
-            ui.allocate_space(vec2(ui.available_width(), tile_h));
-            ui.add_space(gap);
-            continue;
-        }
-        ui.horizontal(|ui| {
-            ui.spacing_mut().item_spacing = vec2(gap, 0.0);
-            for s in pair {
-                let selected = app.service.as_ref().is_some_and(|sel| sel.code == s.code);
+    fn step_providers(&self, cx: &mut Context<Self>) -> Div {
+        let selected_kind = self.app.provider;
+        div().flex().flex_col().gap(px(8.0)).pb(px(8.0)).children(
+            self.app.provider_rows().into_iter().map(|p| {
+                let kind = p.kind;
+                let selected = selected_kind == Some(kind);
+                let fg = if selected { BG } else { FG };
+                let opacity = if !p.connected && !selected { 0.55 } else { 1.0 };
                 let style = if selected {
                     RowStyle::selected()
                 } else {
                     RowStyle::base()
                 }
-                .pad(14.0, 12.0)
-                .width(tile_w);
-                let initial: String = s
-                    .name
-                    .chars()
-                    .next()
-                    .map(|c| c.to_uppercase().collect())
-                    .unwrap_or_default();
-                let (resp, _) =
-                    clickable_row(ui, ("service", s.code.as_str()), tile_h, &style, |ui| {
-                        let (fill, fg) = if selected {
+                .opacity(opacity);
+                // The mint green is tuned for dark rows; the selected row is light, so use
+                // the darker "connected" green there.
+                let dot_color = match (p.connected, selected) {
+                    (true, true) => GREEN_ON_LIGHT,
+                    (true, false) => GREEN,
+                    (false, _) => white(0.2),
+                };
+                let right: AnyElement = if p.connected {
+                    match p.balance {
+                        Some(balance) => mono(MONO_LG)
+                            .text_color(op(fg, 0.75))
+                            .child(fmt_usd(balance))
+                            .into_any_element(),
+                        None => div().into_any_element(),
+                    }
+                } else if p.connecting {
+                    sans(SANS_SMALL)
+                        .text_color(op(white(0.6), opacity))
+                        .child("Connecting…")
+                        .into_any_element()
+                } else {
+                    Btn::new(("connect", kind as u32), "Connect ›")
+                        .sans(SANS_SMALL)
+                        .fg(white(0.6))
+                        .border(white(0.2))
+                        .hover_fg(FG)
+                        .hover_border(white(0.5))
+                        .pad(10.0, 5.0)
+                        .radius(6.0)
+                        .opacity(opacity)
+                        .on_click(cx.listener(move |this, _, window, cx| {
+                            this.dispatch(Action::GoScreen(Screen::Settings), window, cx);
+                        }))
+                        .into_any_element()
+                };
+                row(("provider", kind as u32), PROVIDER_ROW_H, &style)
+                    .child(dot(7.0, op(dot_color, opacity)))
+                    .child(
+                        sans_med(SANS_ROW_LG)
+                            .text_color(op(fg, opacity))
+                            .child(p.name()),
+                    )
+                    .child(div().flex_1())
+                    .child(right)
+                    .on_click(cx.listener(move |this, _, window, cx| {
+                        this.dispatch(Action::PickProvider(kind), window, cx);
+                    }))
+            }),
+        )
+    }
+
+    // -----------------------------------------------------------------------
+    // Step 2
+
+    fn step_services(&self, cx: &mut Context<Self>) -> Div {
+        if self.app.loading_services {
+            return div()
+                .flex()
+                .flex_col()
+                .gap(px(8.0))
+                .pb(px(8.0))
+                .children((0..4).map(|_| {
+                    div()
+                        .flex()
+                        .flex_row()
+                        .gap(px(8.0))
+                        .child(Skeleton::new().flex_1().h(px(56.0)).rounded(px(8.0)))
+                        .child(Skeleton::new().flex_1().h(px(56.0)).rounded(px(8.0)))
+                }));
+        }
+        let rows = self.app.service_rows();
+        if rows.is_empty() {
+            return div()
+                .flex()
+                .flex_col()
+                .child(dashed_box(&["No services match.", "Try another search."]));
+        }
+        div()
+            .flex()
+            .flex_col()
+            .gap(px(8.0))
+            .pb(px(8.0))
+            .children(rows.chunks(2).map(|pair| {
+                div()
+                    .flex()
+                    .flex_row()
+                    .gap(px(8.0))
+                    .children(pair.iter().map(|s| {
+                        let selected = self
+                            .app
+                            .service
+                            .as_ref()
+                            .is_some_and(|sel| sel.code == s.code);
+                        let style = if selected {
+                            RowStyle::selected()
+                        } else {
+                            RowStyle::base()
+                        }
+                        .pad_x(14.0);
+                        let (fill, badge_fg) = if selected {
                             (BG, FG)
                         } else {
                             (white(0.08), FG)
                         };
-                        badge(
-                            ui,
-                            &initial,
-                            vec2(30.0, 30.0),
-                            7,
-                            fill,
-                            Color32::TRANSPARENT,
-                            mono_semi(MONO_XL),
-                            fg,
-                        );
-                        let w = ui.available_width();
-                        text_trunc(
-                            ui,
-                            &s.name,
-                            sans_med(SANS_ROW),
-                            if selected { BG } else { FG },
-                            w,
-                        );
-                    });
-                if resp.clicked() {
-                    out.push(Action::PickService((*s).clone()));
-                }
-            }
-        });
-        ui.add_space(gap);
+                        let initial: String = s
+                            .name
+                            .chars()
+                            .next()
+                            .map(|c| c.to_uppercase().collect())
+                            .unwrap_or_default();
+                        let svc = (*s).clone();
+                        div().flex_1().child(
+                            row(
+                                SharedString::from(format!("service-{}", s.code.as_str())),
+                                SERVICE_TILE_H,
+                                &style,
+                            )
+                            .child(
+                                badge_frame(30.0, 30.0, 7.0, fill, TRANSPARENT)
+                                    .child(mono_semi(MONO_XL).text_color(badge_fg).child(initial)),
+                            )
+                            .child(
+                                sans_med(SANS_ROW)
+                                    .flex_1()
+                                    .min_w(px(0.0))
+                                    .truncate()
+                                    .text_color(if selected { BG } else { FG })
+                                    .child(s.name.clone()),
+                            )
+                            .on_click(cx.listener(
+                                move |this, _, window, cx| {
+                                    this.dispatch(Action::PickService(svc.clone()), window, cx);
+                                },
+                            )),
+                        )
+                    }))
+                    .when(pair.len() == 1, |d| d.child(div().flex_1()))
+            }))
     }
-}
 
-// ---------------------------------------------------------------------------
-// Step 3
+    // -----------------------------------------------------------------------
+    // Step 3
 
-fn step_countries(ui: &mut Ui, app: &App, out: &mut Vec<Action>) {
-    if app.loading_countries {
-        skeleton_list(ui, 50.0);
-        return;
-    }
-    let rows = app.country_rows();
-    if rows.is_empty() {
-        empty_hint(
-            ui,
-            &["No countries for this service.", "Try another service."],
-        );
-        return;
-    }
-    let row_h = 24.0 + line_h(ui, &sans_med(SANS_ROW)).max(24.0);
-    for c in rows {
-        if !row_visible(ui, row_h) {
-            ui.allocate_space(vec2(ui.available_width(), row_h));
-            ui.add_space(8.0);
-            continue;
+    fn step_countries(&self, cx: &mut Context<Self>) -> Div {
+        if self.app.loading_countries {
+            return skeleton_list(50.0);
         }
-        let selected = app.country.as_ref().is_some_and(|sel| sel.key == c.key);
-        let fg = if selected { BG } else { FG };
-        // Sold out here right now: shown, but faded.
-        let opacity = if c.count == 0 && !selected { 0.55 } else { 1.0 };
+        let rows = self.app.country_rows();
+        if rows.is_empty() {
+            return div().flex().flex_col().child(dashed_box(&[
+                "No countries for this service.",
+                "Try another service.",
+            ]));
+        }
+        div()
+            .flex()
+            .flex_col()
+            .gap(px(8.0))
+            .pb(px(8.0))
+            .children(rows.into_iter().map(|c| {
+                let selected = self
+                    .app
+                    .country
+                    .as_ref()
+                    .is_some_and(|sel| sel.key == c.key);
+                let fg = if selected { BG } else { FG };
+                // Sold out here right now: shown, but faded.
+                let opacity = if c.count == 0 && !selected { 0.55 } else { 1.0 };
+                let style = if selected {
+                    RowStyle::selected()
+                } else {
+                    RowStyle::base()
+                }
+                .pad_x(14.0)
+                .opacity(opacity);
+                let (fill, badge_fg) = if selected {
+                    (BG, FG)
+                } else {
+                    (white(0.08), FG)
+                };
+                let country = c.clone();
+                row(
+                    SharedString::from(format!("country-{}", c.key)),
+                    COUNTRY_ROW_H,
+                    &style,
+                )
+                .child(
+                    badge_frame(32.0, 24.0, 5.0, op(fill, opacity), TRANSPARENT).child(
+                        mono_semi(MONO_XS)
+                            .text_color(op(badge_fg, opacity))
+                            .child(c.code.clone()),
+                    ),
+                )
+                // Keep price and dial code intact; the country name gives way when space
+                // is short.
+                .child(
+                    sans_med(SANS_ROW)
+                        .flex_1()
+                        .min_w(px(0.0))
+                        .truncate()
+                        .text_color(op(fg, opacity))
+                        .child(c.name.clone()),
+                )
+                .when_some(c.dial.clone(), |r, dial| {
+                    r.child(
+                        mono(MONO_MD)
+                            .text_color(op(
+                                if selected { black(0.45) } else { white(0.45) },
+                                opacity,
+                            ))
+                            .child(dial),
+                    )
+                })
+                .child(
+                    div().flex_none().w(px(56.0)).flex().justify_end().child(
+                        mono(MONO_XL)
+                            .text_color(op(fg, opacity))
+                            .child(fmt_usd(c.price)),
+                    ),
+                )
+                .on_click(cx.listener(move |this, _, window, cx| {
+                    this.dispatch(Action::PickCountry(country.clone()), window, cx);
+                }))
+            }))
+    }
+
+    // -----------------------------------------------------------------------
+    // Step 4
+
+    fn step_offers(&self, cx: &mut Context<Self>) -> Div {
+        if self.app.loading_offers {
+            return skeleton_list(44.0);
+        }
+        let groups = self.app.offer_rows();
+        if groups.is_empty() {
+            return div().flex().flex_col().child(dashed_box(&[
+                "No offers right now.",
+                "Try another country.",
+            ]));
+        }
+        div()
+            .flex()
+            .flex_col()
+            .children(groups.into_iter().enumerate().map(|(gi, g)| {
+                div()
+                    .flex()
+                    .flex_col()
+                    .pb(px(20.0))
+                    .child(
+                        div()
+                            .flex()
+                            .flex_row()
+                            .items_center()
+                            .px(px(2.0))
+                            .child(
+                                sans_semi(SANS_BODY)
+                                    .flex_1()
+                                    .min_w(px(0.0))
+                                    .truncate()
+                                    .text_color(FG)
+                                    .child(g.name.clone()),
+                            )
+                            .child(
+                                mono(MONO_XS)
+                                    .text_color(white(0.4))
+                                    .child(format!("{} available", fmt_thousands(g.total))),
+                            ),
+                    )
+                    .child(div().h(px(8.0)))
+                    .child(
+                        div().flex().flex_col().gap(px(8.0)).children(
+                            g.tiers
+                                .iter()
+                                .enumerate()
+                                .map(|(k, t)| self.offer_tier(gi, g.name.as_str(), k, t, cx)),
+                        ),
+                    )
+            }))
+    }
+
+    fn offer_tier(
+        &self,
+        gi: usize,
+        group: &str,
+        k: usize,
+        t: &crate::backend::OfferTier,
+        cx: &mut Context<Self>,
+    ) -> Stateful<Div> {
+        let selected = self
+            .app
+            .offer
+            .as_ref()
+            .is_some_and(|(sel_group, tier)| *sel_group == group && tier == t);
+        let fav = self.app.favorite_for(group, t);
+        let is_fav = fav.as_ref().is_some_and(|f| self.app.is_fav(f));
         let style = if selected {
             RowStyle::selected()
         } else {
             RowStyle::base()
         }
-        .pad(14.0, 12.0)
-        .opacity(opacity);
-        let (resp, _) = clickable_row(ui, ("country", &c.key), row_h, &style, |ui| {
-            let (fill, badge_fg) = if selected {
-                (BG, FG)
-            } else {
-                (white(0.08), FG)
-            };
-            badge(
-                ui,
-                &c.code,
-                vec2(32.0, 24.0),
-                5,
-                op(fill, opacity),
-                Color32::TRANSPARENT,
-                mono_semi(MONO_XS),
-                op(badge_fg, opacity),
-            );
-            // Keep price and dial code intact; the country name gives way when space is short.
-            let reserved = 56.0 + 12.0 + if c.dial.is_some() { 48.0 } else { 0.0 };
-            let name_w = (ui.available_width() - reserved).max(40.0);
-            text_trunc(ui, &c.name, sans_med(SANS_ROW), op(fg, opacity), name_w);
-            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                ui.allocate_ui_with_layout(
-                    vec2(56.0, ui.available_height()),
-                    Layout::right_to_left(Align::Center),
-                    |ui| {
-                        text(ui, fmt_usd(c.price), mono(MONO_XL), op(fg, opacity));
-                    },
+        .pad_x(14.0)
+        .radius(8.0);
+        let star = IconBtn::new(
+            SharedString::from(format!("star-{gi}-{k}")),
+            star_icon(is_fav),
+        )
+        .fg(if selected { black(0.6) } else { white(0.5) })
+        .hover_fg(if selected { BG } else { FG })
+        .tooltip(if is_fav {
+            "Remove from favorites"
+        } else {
+            "Add to favorites"
+        });
+        let star = match fav {
+            Some(fav) => star.on_click(cx.listener(move |this, _, window, cx| {
+                this.dispatch(Action::ToggleFav(fav.clone()), window, cx);
+            })),
+            None => star,
+        };
+        let group_name = group.to_string();
+        let tier = t.clone();
+        row(SharedString::from(format!("tier-{gi}-{k}")), TIER_H, &style)
+            .child(dot(6.0, if selected { BG } else { white(0.3) }))
+            .child(
+                mono_semi(MONO_PRICE)
+                    .text_color(if selected { BG } else { FG })
+                    .child(fmt_usd4(t.price)),
+            )
+            .child(div().flex_1())
+            .child(
+                sans(SANS_SMALL)
+                    .text_color(if selected { black(0.55) } else { white(0.45) })
+                    .child(format!("{} numbers", fmt_thousands(t.count))),
+            )
+            .child(star)
+            .on_click(cx.listener(move |this, _, window, cx| {
+                this.dispatch(
+                    Action::PickOffer(group_name.clone(), tier.clone()),
+                    window,
+                    cx,
                 );
-                if let Some(dial) = &c.dial {
-                    text(
-                        ui,
-                        dial,
-                        mono(MONO_MD),
-                        op(if selected { black(0.45) } else { white(0.45) }, opacity),
-                    );
-                }
-            });
-        });
-        if resp.clicked() {
-            out.push(Action::PickCountry(c.clone()));
-        }
-        ui.add_space(8.0);
+            }))
+    }
+
+    // -----------------------------------------------------------------------
+    // Summary bar
+
+    /// Sticky request bar below the list: fade strip, then the summary card.
+    fn wizard_summary_bar(&self, cx: &mut Context<Self>) -> Div {
+        let Some((line, via, price)) = self.app.summary() else {
+            return div();
+        };
+        div()
+            .flex_none()
+            .flex()
+            .flex_col()
+            // Fade the list out above the bar (CSS `linear-gradient(transparent, #0b0b0c 30%)`).
+            .child(div().h(px(24.0)).w_full().bg(linear_gradient(
+                180.0,
+                linear_color_stop(TRANSPARENT, 0.0),
+                linear_color_stop(BG, 1.0),
+            )))
+            .child(
+                div()
+                    .w_full()
+                    .bg(SUMMARY_BG)
+                    .border_1()
+                    .border_color(white(0.1))
+                    .rounded(px(10.0))
+                    .px(px(16.0))
+                    .py(px(14.0))
+                    .flex()
+                    .flex_row()
+                    .items_center()
+                    .gap(px(14.0))
+                    .child(
+                        div()
+                            .flex_1()
+                            .min_w(px(0.0))
+                            .flex()
+                            .flex_col()
+                            .gap(px(2.0))
+                            .child(sans_med(SANS_BODY_LG).truncate().text_color(FG).child(line))
+                            .child(sans(SANS_SMALL).text_color(white(0.45)).child(via)),
+                    )
+                    .child(mono_semi(MONO_TOTAL).text_color(FG).child(price))
+                    .child(
+                        Btn::primary("request-number", "Request number", SANS_BODY_LG)
+                            .pad(18.0, 11.0)
+                            .radius(8.0)
+                            .on_click(cx.listener(|this, _, window, cx| {
+                                this.dispatch(Action::RequestNumber, window, cx);
+                            })),
+                    ),
+            )
+            .child(div().h(px(4.0)))
     }
 }
 
-// ---------------------------------------------------------------------------
-// Step 4
-
-fn step_offers(ui: &mut Ui, app: &App, out: &mut Vec<Action>) {
-    if app.loading_offers {
-        skeleton_list(ui, 44.0);
-        return;
-    }
-    let groups = app.offer_rows();
-    if groups.is_empty() {
-        empty_hint(ui, &["No offers right now.", "Try another country."]);
-        return;
-    }
-    let tier_h = 22.0 + line_h(ui, &mono_semi(MONO_PRICE)).max(line_h(ui, &sans(SANS_ROW)) + 4.0);
-    for g in groups {
-        ui.horizontal(|ui| {
-            ui.add_space(2.0);
-            text(ui, &g.name, sans_semi(SANS_BODY), FG);
-            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                ui.add_space(2.0);
-                text(
-                    ui,
-                    format!("{} available", fmt_thousands(g.total)),
-                    mono(MONO_XS),
-                    white(0.4),
-                );
-            });
-        });
-        ui.add_space(8.0);
-        for (k, t) in g.tiers.iter().enumerate() {
-            let selected = app
-                .offer
-                .as_ref()
-                .is_some_and(|(group, tier)| *group == g.name && tier == t);
-            let fav = app.favorite_for(&g.name, t);
-            let is_fav = fav.as_ref().is_some_and(|f| app.is_fav(f));
-            let style = if selected {
-                RowStyle::selected()
-            } else {
-                RowStyle::base()
-            }
-            .pad(14.0, 11.0)
-            .radius(8);
-            let (resp, star_clicked) =
-                clickable_row(ui, ("tier", &g.name, k), tier_h, &style, |ui| {
-                    dot(ui, 6.0, if selected { BG } else { white(0.3) });
-                    text(
-                        ui,
-                        fmt_usd4(t.price),
-                        mono_semi(MONO_PRICE),
-                        if selected { BG } else { FG },
-                    );
-                    ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                        ui.spacing_mut().item_spacing = vec2(12.0, 0.0);
-                        let star = IconBtn::new(Icon::Star { filled: is_fav })
-                            .fg(if selected { black(0.6) } else { white(0.5) })
-                            .hover_fg(if selected { BG } else { FG })
-                            .tooltip(if is_fav {
-                                "Remove from favorites"
-                            } else {
-                                "Add to favorites"
-                            })
-                            .show(ui)
-                            .clicked();
-                        text(
-                            ui,
-                            format!("{} numbers", fmt_thousands(t.count)),
-                            sans(SANS_SMALL),
-                            if selected { black(0.55) } else { white(0.45) },
-                        );
-                        star
-                    })
-                    .inner
-                });
-            if star_clicked {
-                if let Some(fav) = fav {
-                    out.push(Action::ToggleFav(fav));
-                }
-            } else if resp.clicked() {
-                out.push(Action::PickOffer(g.name.clone(), t.clone()));
-            }
-            ui.add_space(8.0);
-        }
-        ui.add_space(12.0);
-    }
+/// The scrollable list region: styles here are hoisted onto the `Scrollable` wrapper, so the
+/// actual rows live in a nested column.
+fn list_frame(step: u8, content: Div, bottom: f32) -> Stateful<Div> {
+    div()
+        .id(("wizard", step as u32))
+        .flex_1()
+        .min_h(px(0.0))
+        .w_full()
+        .child(
+            div()
+                .flex()
+                .flex_col()
+                .w_full()
+                .child(content)
+                .child(div().h(px(bottom))),
+        )
 }
 
-fn summary_bar_height(ui: &Ui) -> f32 {
-    let text_block = line_h(ui, &sans_med(SANS_BODY_LG)) + 2.0 + line_h(ui, &sans(SANS_SMALL));
-    let button = line_h(ui, &sans_semi(SANS_BODY_LG)) + 22.0;
-    24.0 + text_block.max(button) + 28.0 + 2.0 + 4.0
-}
-
-fn summary_bar(ui: &mut Ui, app: &App, out: &mut Vec<Action>) {
-    let Some((line, via, price)) = app.summary() else {
-        return;
-    };
-    // Fade the list out above the bar (CSS `linear-gradient(transparent, #0b0b0c 30%)`).
-    let fade_rect = Rect::from_min_size(ui.cursor().min, vec2(ui.available_width(), 24.0));
-    vgradient(ui.painter(), fade_rect, Color32::TRANSPARENT, BG);
-    ui.add_space(24.0);
-    Frame::new()
-        .fill(SUMMARY_BG)
-        .stroke(Stroke::new(1.0, white(0.1)))
-        .corner_radius(CornerRadius::same(10))
-        .inner_margin(Margin {
-            left: 16,
-            right: 16,
-            top: 14,
-            bottom: 14,
-        })
-        .show(ui, |ui| {
-            ui.set_width(ui.available_width());
-            ui.horizontal(|ui| {
-                ui.spacing_mut().item_spacing = vec2(14.0, 0.0);
-                ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                    ui.spacing_mut().item_spacing = vec2(14.0, 0.0);
-                    let r = Btn::primary("Request number", 13.5)
-                        .pad(18.0, 11.0)
-                        .radius(8)
-                        .show(ui);
-                    if r.clicked() {
-                        out.push(Action::RequestNumber);
-                    }
-                    text(ui, price, mono_semi(MONO_TOTAL), FG);
-                    ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
-                        let w = ui.available_width();
-                        ui.vertical(|ui| {
-                            ui.spacing_mut().item_spacing = vec2(0.0, 2.0);
-                            text_trunc(ui, line, sans_med(SANS_BODY_LG), FG, w);
-                            text(ui, via, sans(SANS_SMALL), white(0.45));
-                        });
-                    });
-                });
-            });
-        });
-    ui.add_space(4.0);
+/// Eight full-width loading placeholders (countries: 50 px, offers: 44 px).
+fn skeleton_list(h: f32) -> Div {
+    div()
+        .flex()
+        .flex_col()
+        .gap(px(8.0))
+        .pb(px(8.0))
+        .children((0..8).map(move |_| Skeleton::new().w_full().h(px(h)).rounded(px(8.0))))
 }

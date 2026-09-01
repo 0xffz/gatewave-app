@@ -1,27 +1,31 @@
 //! Background execution for blocking provider calls, plus wall-clock timers.
 //!
 //! Every provider call runs on its own thread; the result comes back as an event through an
-//! `mpsc` channel that the app drains once per frame. The thread also asks egui to repaint so the
-//! result shows up without waiting for the next input event.
+//! `mpsc` channel that the app drains on every tick. The thread also invokes a wake callback so
+//! the UI notices the result without waiting for the next input event.
 
+use std::sync::Arc;
 use std::sync::mpsc::{Receiver, Sender, channel};
 use std::thread;
 use std::time::{Duration, Instant};
 
+/// Called from worker threads when a job finishes; wakes the UI event loop.
+pub type Wake = Arc<dyn Fn() + Send + Sync>;
+
 pub struct Worker<E> {
     tx: Sender<E>,
-    ctx: Option<egui::Context>,
+    wake: Option<Wake>,
     inline: bool,
 }
 
 impl<E: Send + 'static> Worker<E> {
-    /// Jobs run on background threads; `ctx` is repainted when a job finishes.
-    pub fn threaded(ctx: Option<egui::Context>) -> (Self, Receiver<E>) {
+    /// Jobs run on background threads; `wake` is invoked when a job finishes.
+    pub fn threaded(wake: Option<Wake>) -> (Self, Receiver<E>) {
         let (tx, rx) = channel();
         (
             Self {
                 tx,
-                ctx,
+                wake,
                 inline: false,
             },
             rx,
@@ -35,7 +39,7 @@ impl<E: Send + 'static> Worker<E> {
         (
             Self {
                 tx,
-                ctx: None,
+                wake: None,
                 inline: true,
             },
             rx,
@@ -48,12 +52,12 @@ impl<E: Send + 'static> Worker<E> {
             return;
         }
         let tx = self.tx.clone();
-        let ctx = self.ctx.clone();
+        let wake = self.wake.clone();
         thread::spawn(move || {
             let event = job();
             let _ = tx.send(event);
-            if let Some(ctx) = ctx {
-                ctx.request_repaint();
+            if let Some(wake) = wake {
+                wake();
             }
         });
     }

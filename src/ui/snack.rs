@@ -1,57 +1,66 @@
-//! Top-centre snackbar.
+//! Top-centre snackbar overlay.
 
-use egui::epaint::Shadow;
-use egui::{Align, Align2, Area, Context, CornerRadius, Frame, Id, Layout, Margin, Order, vec2};
+use gpui::{
+    AnyElement, BoxShadow, Context, IntoElement, ParentElement, Styled, Window, div, point, px,
+};
+use gpui_component::IconName;
 
+use super::Gatewave;
 use super::widgets::*;
-use crate::app::{Action, App, SnackKind};
+use crate::app::{Action, SnackKind};
 use crate::theme::*;
 
-pub fn draw(ctx: &Context, app: &App, out: &mut Vec<Action>) {
-    let Some(snack) = &app.snack else { return };
-    let dot_color = match snack.kind {
-        SnackKind::Error => SNACK_ERROR,
-        SnackKind::Success => SNACK_SUCCESS,
-        SnackKind::Info => BG,
-    };
-    Area::new(Id::new("snackbar"))
-        .order(Order::Foreground)
-        .anchor(Align2::CENTER_TOP, vec2(0.0, 18.0))
-        .interactable(true)
-        .show(ctx, |ui| {
-            Frame::new()
-                .fill(FG)
-                .corner_radius(CornerRadius::same(8))
-                .inner_margin(Margin {
-                    left: 16,
-                    right: 14,
-                    top: 11,
-                    bottom: 11,
-                })
-                .shadow(Shadow {
-                    offset: [0, 12],
-                    blur: 32,
-                    spread: 0,
-                    color: black(0.5),
-                })
-                .show(ui, |ui| {
-                    ui.set_max_width(520.0);
-                    ui.spacing_mut().item_spacing = vec2(10.0, 0.0);
-                    ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                        ui.spacing_mut().item_spacing = vec2(10.0, 0.0);
-                        let r = IconBtn::new(Icon::Close)
+impl Gatewave {
+    pub(super) fn render_snack(&mut self, _: &mut Window, cx: &mut Context<Self>) -> AnyElement {
+        let Some(snack) = &self.app.snack else {
+            return div().into_any_element();
+        };
+        let dot_color = match snack.kind {
+            SnackKind::Error => SNACK_ERROR,
+            SnackKind::Success => SNACK_SUCCESS,
+            SnackKind::Info => BG,
+        };
+        div()
+            .absolute()
+            .top(px(18.0))
+            .left_0()
+            .right_0()
+            .flex()
+            .justify_center()
+            .child(
+                div()
+                    .max_w(px(520.0))
+                    .bg(FG)
+                    .rounded(px(8.0))
+                    .pl(px(16.0))
+                    .pr(px(14.0))
+                    .py(px(11.0))
+                    .shadow(vec![BoxShadow {
+                        color: black(0.5).into(),
+                        offset: point(px(0.0), px(12.0)),
+                        blur_radius: px(32.0),
+                        spread_radius: px(0.0),
+                    }])
+                    .flex()
+                    .flex_row()
+                    .items_center()
+                    .gap(px(10.0))
+                    .child(dot(8.0, dot_color))
+                    .child(
+                        sans_med(SANS_BODY_LG)
+                            .whitespace_normal()
+                            .text_color(BG)
+                            .child(snack.msg.clone()),
+                    )
+                    .child(
+                        IconBtn::new("snack-close", IconName::Close)
                             .fg(black(0.45))
                             .hover_fg(BG)
-                            .show(ui);
-                        if r.clicked() {
-                            out.push(Action::DismissSnack);
-                        }
-                        ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
-                            ui.spacing_mut().item_spacing = vec2(10.0, 0.0);
-                            dot(ui, 8.0, dot_color);
-                            text_wrap(ui, &snack.msg, sans_med(SANS_BODY_LG), BG);
-                        });
-                    });
-                });
-        });
+                            .on_click(cx.listener(|this, _, window, cx| {
+                                this.dispatch(Action::DismissSnack, window, cx);
+                            })),
+                    ),
+            )
+            .into_any_element()
+    }
 }

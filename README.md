@@ -1,6 +1,6 @@
 # Gatewave
 
-A Rust/[egui](https://github.com/emilk/egui) desktop client for buying SMS-verification numbers from
+A Rust/[gpui](https://www.gpui.rs) + [gpui-component](https://github.com/longbridge/gpui-component) desktop client for buying SMS-verification numbers from
 Hero SMS, 5SIM, Tiger SMS and SMSBower. The UI follows the Claude Design file in
 [`design/Gatewave.dc.html`](design/Gatewave.dc.html); the data comes from the real providers
 through the workspace crate `sms-activate`.
@@ -86,9 +86,9 @@ Country keys are provider-native (`CountryRef::Id(187)` for the sms-activate fam
 | `sound.rs`    | The "code received" chime: a system sound through the OS player (`afplay` on macOS, `canberra`/`paplay`/`aplay` on Linux, PowerShell on Windows) on a background thread |
 | `app.rs`      | App state machine: provider slots, wizard, purchase / poll / cancel lifecycle, persistence |
 | `theme.rs`    | Palette, IBM Plex Sans/Mono (embedded, OFL), text sizes, global style |
-| `ui/`         | One file per region: sidebar, wizard, favorites, settings, numbers, snackbar; `widgets.rs` holds the custom widgets |
-| `assets/`     | Embedded IBM Plex fonts and the app icon (`icon.png` 1024 px master, `icon-512.png` is what the binary embeds) |
+| `ui/`         | The gpui root view (`mod.rs`) plus one file per region: sidebar, wizard, favorites, settings, numbers, snackbar; `widgets.rs` holds the custom widgets |
+| `assets/`     | Embedded IBM Plex fonts and the app icon (`icon.png` 1024 px master; `make app` bakes it into `Gatewave.app`) |
 
-`cargo test` covers the domain types, the app state machine over a mock backend (no network, nothing is ever
-bought) and runs headless egui frames over every screen.
+`cargo test` covers the domain types and the app state machine over a mock backend (no network, nothing is ever
+bought), including the UI event-pump scheduling policy.
 

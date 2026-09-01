@@ -1,225 +1,152 @@
-//! Small custom widgets that reproduce the design's inline-styled elements.
+//! Small gpui building blocks that reproduce the design's inline-styled elements.
 
-use std::f32::consts::TAU;
-use std::hash::Hash;
-
-use egui::{
-    Align, Align2, Color32, CornerRadius, CursorIcon, FontId, Frame, Id, Label, Layout, Margin,
-    Mesh, Painter, Pos2, Rect, Response, RichText, Sense, Shape, Stroke, StrokeKind, TextEdit,
-    TextWrapMode, Ui, UiBuilder, Vec2, pos2, vec2,
+use gpui::prelude::FluentBuilder;
+use gpui::{
+    App, ClickEvent, Div, ElementId, FontWeight, InteractiveElement, IntoElement, ParentElement,
+    RenderOnce, Rgba, SharedString, Stateful, StatefulInteractiveElement, Styled, Window, div, px,
+    relative,
 };
+use gpui_component::{Icon, IconName};
 
 use crate::theme::*;
 
-pub fn line_h(ui: &Ui, font: &FontId) -> f32 {
-    ui.fonts_mut(|f| f.row_height(font))
+/// Group name rows advertise so children can restyle on row hover
+/// (`.group_hover(ROW_GROUP, …)`).
+pub const ROW_GROUP: &str = "row";
+
+// ---------------------------------------------------------------------------
+// Text builders: a div pre-styled with the design's face and size. Callers add
+// `.text_color(…)` and `.child(…)`. Single-line by default; call
+// `.whitespace_normal()` for wrapping paragraphs.
+
+fn face(family: &'static str, weight: FontWeight, size: f32) -> Div {
+    div()
+        .font_family(family)
+        .font_weight(weight)
+        .text_size(px(size))
+        .whitespace_nowrap()
 }
 
-pub fn rich(s: impl Into<String>, font: FontId, color: Color32) -> RichText {
-    RichText::new(s).font(font).color(color)
+/// Proportional text, regular weight.
+pub fn sans(size: f32) -> Div {
+    face(SANS_FAMILY, FontWeight::NORMAL, size)
+}
+pub fn sans_med(size: f32) -> Div {
+    face(SANS_FAMILY, FontWeight::MEDIUM, size)
+}
+pub fn sans_semi(size: f32) -> Div {
+    face(SANS_FAMILY, FontWeight::SEMIBOLD, size)
+}
+/// Monospace text, regular weight.
+pub fn mono(size: f32) -> Div {
+    face(MONO_FAMILY, FontWeight::NORMAL, size)
+}
+/// Monospace text, medium weight (the heaviest embedded Plex Mono face).
+pub fn mono_semi(size: f32) -> Div {
+    face(MONO_FAMILY, FontWeight::MEDIUM, size)
 }
 
-/// Single-line, non-wrapping, non-selectable text.
-pub fn text(ui: &mut Ui, s: impl Into<String>, font: FontId, color: Color32) -> Response {
-    ui.add(
-        Label::new(rich(s, font, color))
-            .selectable(false)
-            .wrap_mode(TextWrapMode::Extend),
-    )
-}
-
-/// Text with CSS-like letter spacing (in px).
-pub fn text_ls(
-    ui: &mut Ui,
-    s: impl Into<String>,
-    font: FontId,
-    color: Color32,
-    spacing: f32,
-) -> Response {
-    ui.add(
-        Label::new(rich(s, font, color).extra_letter_spacing(spacing))
-            .selectable(false)
-            .wrap_mode(TextWrapMode::Extend),
-    )
-}
-
-/// Text truncated with an ellipsis at `max_w`.
-pub fn text_trunc(
-    ui: &mut Ui,
-    s: impl Into<String>,
-    font: FontId,
-    color: Color32,
-    max_w: f32,
-) -> Response {
-    let h = line_h(ui, &font);
-    ui.allocate_ui_with_layout(vec2(max_w, h), Layout::left_to_right(Align::Center), |ui| {
-        ui.set_max_width(max_w);
-        ui.add(
-            Label::new(rich(s, font, color))
-                .selectable(false)
-                .truncate(),
-        )
-    })
-    .inner
-}
-
-/// Wrapping paragraph text.
-pub fn text_wrap(ui: &mut Ui, s: impl Into<String>, font: FontId, color: Color32) -> Response {
-    ui.add(Label::new(rich(s, font, color)).selectable(false).wrap())
-}
-
-pub fn dot(ui: &mut Ui, d: f32, color: Color32) {
-    let (rect, _) = ui.allocate_exact_size(vec2(d, d), Sense::hover());
-    ui.painter().circle_filled(rect.center(), d / 2.0, color);
-}
-
-/// Small rounded box with centered text (country code, service letter, step number).
-#[allow(clippy::too_many_arguments)]
-pub fn badge(
-    ui: &mut Ui,
-    s: &str,
-    size: Vec2,
-    radius: u8,
-    fill: Color32,
-    border: Color32,
-    font: FontId,
-    fg: Color32,
-) {
-    let (rect, _) = ui.allocate_exact_size(size, Sense::hover());
-    let p = ui.painter();
-    p.rect(
-        rect,
-        CornerRadius::same(radius),
-        fill,
-        Stroke::new(1.0, border),
-        StrokeKind::Inside,
-    );
-    p.text(rect.center(), Align2::CENTER_CENTER, s, font, fg);
-}
-
-/// Loading placeholder that breathes between 5 % and 10 % white.
-pub fn skeleton(ui: &mut Ui, size: Vec2, radius: u8) {
-    let (rect, _) = ui.allocate_exact_size(size, Sense::hover());
-    let t = ui.input(|i| i.time) as f32;
-    let a = 0.05 + 0.05 * (0.5 + 0.5 * (t * TAU / 1.4).sin());
-    ui.painter()
-        .rect_filled(rect, CornerRadius::same(radius), white(a));
-}
-
-/// 36×20 switch. Purely visual — the enclosing row handles the click.
-pub fn toggle_visual(ui: &mut Ui, on: bool, id: Id) {
-    let (rect, _) = ui.allocate_exact_size(vec2(36.0, 20.0), Sense::hover());
-    let t = ui.ctx().animate_bool_with_time(id, on, 0.15);
-    let track = lerp(white(0.14), FG, t);
-    let knob = lerp(white(0.6), BG, t);
-    let p = ui.painter();
-    p.rect_filled(rect, CornerRadius::same(10), track);
-    let cx = rect.left() + 2.0 + 8.0 + 16.0 * t;
-    p.circle_filled(pos2(cx, rect.center().y), 8.0, knob);
-}
-
-pub fn progress_bar(ui: &mut Ui, frac: f32) {
-    let (rect, _) = ui.allocate_exact_size(vec2(ui.available_width(), 3.0), Sense::hover());
-    let p = ui.painter();
-    p.rect_filled(rect, CornerRadius::same(2), white(0.09));
-    let w = rect.width() * frac.clamp(0.0, 1.0);
-    if w > 0.0 {
-        p.rect_filled(
-            Rect::from_min_size(rect.min, vec2(w, rect.height())),
-            CornerRadius::same(2),
-            FG,
-        );
-    }
-}
-
-/// egui's separator colour (the same stroke that draws the panel borders).
-pub fn separator_color(ui: &Ui) -> Color32 {
-    ui.visuals().widgets.noninteractive.bg_stroke.color
-}
-
-pub fn hline(ui: &mut Ui, color: Color32) {
-    let (rect, _) = ui.allocate_exact_size(vec2(ui.available_width(), 1.0), Sense::hover());
-    ui.painter()
-        .hline(rect.x_range(), rect.center().y, Stroke::new(1.0, color));
-}
-
-/// Dashed empty-state box with centered lines of text.
-pub fn dashed_box(ui: &mut Ui, lines: &[&str]) {
-    let font = sans(SANS_LABEL);
-    let lh = line_h(ui, &font);
-    let h = 28.0 * 2.0 + lh * lines.len() as f32;
-    let (rect, _) = ui.allocate_exact_size(vec2(ui.available_width(), h), Sense::hover());
-    let p = ui.painter();
-    let stroke = Stroke::new(1.0, white(0.14));
-    let corners = [
-        rect.left_top(),
-        rect.right_top(),
-        rect.right_bottom(),
-        rect.left_bottom(),
-    ];
-    for i in 0..4 {
-        p.extend(Shape::dashed_line(
-            &[corners[i], corners[(i + 1) % 4]],
-            stroke,
-            4.0,
-            3.0,
-        ));
-    }
-    let mut y = rect.top() + 28.0;
-    for line in lines {
-        p.text(
-            pos2(rect.center().x, y),
-            Align2::CENTER_TOP,
-            line,
-            font.clone(),
-            white(0.35),
-        );
-        y += lh;
-    }
-}
-
-pub fn vgradient(painter: &Painter, rect: Rect, top: Color32, bottom: Color32) {
-    let mut mesh = Mesh::default();
-    mesh.colored_vertex(rect.left_top(), top);
-    mesh.colored_vertex(rect.right_top(), top);
-    mesh.colored_vertex(rect.left_bottom(), bottom);
-    mesh.colored_vertex(rect.right_bottom(), bottom);
-    mesh.add_triangle(0, 1, 2);
-    mesh.add_triangle(1, 3, 2);
-    painter.add(Shape::mesh(mesh));
+/// Section eyebrow ("STEPS", "BALANCES", "ACTIVE NUMBERS").
+pub fn eyebrow(s: impl Into<SharedString>) -> Div {
+    sans(SANS_EYEBROW).text_color(white(0.35)).child(s.into())
 }
 
 // ---------------------------------------------------------------------------
-// Hover helpers
+// Paint primitives
 
-/// Hover transition length, seconds.
-pub const HOVER_ANIM: f32 = 0.12;
+pub fn dot(d: f32, color: Rgba) -> Div {
+    div().flex_none().size(px(d)).rounded_full().bg(color)
+}
 
-/// Perceived lightness (0 = black, 1 = white) of a premultiplied colour; fully transparent
-/// colours count as dark (they sit on the dark app background).
-fn lightness(c: Color32) -> f32 {
-    let [r, g, b, a] = c.to_array();
-    if a == 0 {
+/// Small rounded box with centered text (country code, service letter, step number).
+/// The text child comes from a text builder, e.g. `badge_frame(…).child(mono(MONO_XS)…)`.
+pub fn badge_frame(w: f32, h: f32, radius: f32, fill: Rgba, border: Rgba) -> Div {
+    div()
+        .flex_none()
+        .w(px(w))
+        .h(px(h))
+        .rounded(px(radius))
+        .bg(fill)
+        .border_1()
+        .border_color(border)
+        .flex()
+        .items_center()
+        .justify_center()
+}
+
+pub fn hline(color: Rgba) -> Div {
+    div().w_full().h(px(1.0)).bg(color)
+}
+
+/// Dashed empty-state box with centered lines of text.
+pub fn dashed_box(lines: &[&str]) -> Div {
+    div()
+        .w_full()
+        .py(px(28.0))
+        .border_1()
+        .border_dashed()
+        .border_color(white(0.14))
+        .flex()
+        .flex_col()
+        .items_center()
+        .children(lines.iter().map(|line| {
+            sans(SANS_LABEL)
+                .text_color(white(0.35))
+                .child(SharedString::from(line.to_string()))
+        }))
+}
+
+/// 3 px track with a light fill from the left.
+pub fn progress_bar(frac: f32) -> Div {
+    div()
+        .w_full()
+        .h(px(3.0))
+        .rounded(px(2.0))
+        .bg(white(0.09))
+        .child(
+            div()
+                .h_full()
+                .rounded(px(2.0))
+                .bg(FG)
+                .w(relative(frac.clamp(0.0, 1.0))),
+        )
+}
+
+/// Loading placeholder block (gpui-component's skeleton pulses on its own).
+pub fn skeleton(w: f32, h: f32, radius: f32) -> impl IntoElement {
+    gpui_component::skeleton::Skeleton::new()
+        .w(px(w))
+        .h(px(h))
+        .rounded(px(radius))
+}
+
+// ---------------------------------------------------------------------------
+// Hover color helpers
+
+/// Perceived lightness (0 = black, 1 = white); fully transparent colours count as dark
+/// (they sit on the dark app background).
+fn lightness(c: Rgba) -> f32 {
+    if c.a == 0.0 {
         return 0.0;
     }
-    (0.299 * r as f32 + 0.587 * g as f32 + 0.114 * b as f32) / a as f32
+    0.299 * c.r + 0.587 * c.g + 0.114 * c.b
 }
 
 /// Default hover emphasis: light colours move towards white, dark ones towards black.
-pub fn emphasize(c: Color32, amount: f32) -> Color32 {
-    if c.a() == 0 {
+pub fn emphasize(c: Rgba, amount: f32) -> Rgba {
+    if c.a == 0.0 {
         return c;
     }
     let target = if lightness(c) >= 0.5 {
-        Color32::WHITE
+        WHITE
     } else {
-        Color32::BLACK
+        black(1.0)
     };
     lerp(c, target, amount)
 }
 
 /// Faint surface highlight suited to the text colour drawn on it.
-fn hover_wash(fg: Color32) -> Color32 {
+fn hover_wash(fg: Rgba) -> Rgba {
     if lightness(fg) >= 0.5 {
         white(0.06)
     } else {
@@ -230,82 +157,110 @@ fn hover_wash(fg: Color32) -> Color32 {
 // ---------------------------------------------------------------------------
 // Buttons
 
+type ClickHandler = Box<dyn Fn(&ClickEvent, &mut Window, &mut App) + 'static>;
+
+/// The design's text button: quiet colours that brighten on hover.
+#[derive(IntoElement)]
 pub struct Btn {
-    text: String,
-    font: FontId,
-    fg: Color32,
-    bg: Color32,
-    border: Color32,
-    hover_fg: Option<Color32>,
-    hover_bg: Option<Color32>,
-    hover_border: Option<Color32>,
-    pad: Vec2,
-    radius: u8,
+    id: ElementId,
+    text: SharedString,
+    family: &'static str,
+    weight: FontWeight,
+    size: f32,
+    fg: Rgba,
+    bg: Rgba,
+    border: Rgba,
+    hover_fg: Option<Rgba>,
+    hover_bg: Option<Rgba>,
+    hover_border: Option<Rgba>,
+    pad: (f32, f32),
+    radius: f32,
     disabled: bool,
     min_h: f32,
-    width: Option<f32>,
-    align: Align,
+    full_width: bool,
+    align_left: bool,
     opacity: f32,
+    on_click: Option<ClickHandler>,
 }
 
 impl Btn {
-    pub fn new(text: impl Into<String>, font: FontId) -> Self {
+    pub fn new(id: impl Into<ElementId>, text: impl Into<SharedString>) -> Self {
         Self {
+            id: id.into(),
             text: text.into(),
-            font,
+            family: SANS_FAMILY,
+            weight: FontWeight::MEDIUM,
+            size: SANS_BODY_LG,
             fg: FG,
-            bg: Color32::TRANSPARENT,
-            border: Color32::TRANSPARENT,
+            bg: TRANSPARENT,
+            border: TRANSPARENT,
             hover_fg: None,
             hover_bg: None,
             hover_border: None,
-            pad: vec2(12.0, 8.0),
-            radius: 7,
+            pad: (12.0, 8.0),
+            radius: 7.0,
             disabled: false,
             min_h: 0.0,
-            width: None,
-            align: Align::Center,
+            full_width: false,
+            align_left: false,
             opacity: 1.0,
+            on_click: None,
         }
     }
 
     /// Light filled button (`background:#f2f2f0;color:#0b0b0c`, hover `#fff`).
-    pub fn primary(text: impl Into<String>, size: f32) -> Self {
-        Self::new(text, sans_semi(size))
+    pub fn primary(id: impl Into<ElementId>, text: impl Into<SharedString>, size: f32) -> Self {
+        Self::new(id, text)
+            .font(SANS_FAMILY, FontWeight::SEMIBOLD, size)
             .fg(BG)
             .bg(FG)
             .hover_bg(WHITE)
     }
 
-    pub fn fg(mut self, c: Color32) -> Self {
+    pub fn font(mut self, family: &'static str, weight: FontWeight, size: f32) -> Self {
+        self.family = family;
+        self.weight = weight;
+        self.size = size;
+        self
+    }
+    pub fn sans(self, size: f32) -> Self {
+        self.font(SANS_FAMILY, FontWeight::NORMAL, size)
+    }
+    pub fn sans_med(self, size: f32) -> Self {
+        self.font(SANS_FAMILY, FontWeight::MEDIUM, size)
+    }
+    pub fn mono(self, size: f32) -> Self {
+        self.font(MONO_FAMILY, FontWeight::NORMAL, size)
+    }
+    pub fn fg(mut self, c: Rgba) -> Self {
         self.fg = c;
         self
     }
-    pub fn bg(mut self, c: Color32) -> Self {
+    pub fn bg(mut self, c: Rgba) -> Self {
         self.bg = c;
         self
     }
-    pub fn border(mut self, c: Color32) -> Self {
+    pub fn border(mut self, c: Rgba) -> Self {
         self.border = c;
         self
     }
-    pub fn hover_fg(mut self, c: Color32) -> Self {
+    pub fn hover_fg(mut self, c: Rgba) -> Self {
         self.hover_fg = Some(c);
         self
     }
-    pub fn hover_bg(mut self, c: Color32) -> Self {
+    pub fn hover_bg(mut self, c: Rgba) -> Self {
         self.hover_bg = Some(c);
         self
     }
-    pub fn hover_border(mut self, c: Color32) -> Self {
+    pub fn hover_border(mut self, c: Rgba) -> Self {
         self.hover_border = Some(c);
         self
     }
     pub fn pad(mut self, x: f32, y: f32) -> Self {
-        self.pad = vec2(x, y);
+        self.pad = (x, y);
         self
     }
-    pub fn radius(mut self, r: u8) -> Self {
+    pub fn radius(mut self, r: f32) -> Self {
         self.radius = r;
         self
     }
@@ -318,155 +273,129 @@ impl Btn {
         self
     }
     pub fn full_width(mut self) -> Self {
-        self.width = Some(f32::INFINITY);
+        self.full_width = true;
         self
     }
     pub fn align_left(mut self) -> Self {
-        self.align = Align::Min;
+        self.align_left = true;
         self
     }
     pub fn opacity(mut self, o: f32) -> Self {
         self.opacity = o;
         self
     }
+    pub fn on_click(mut self, f: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static) -> Self {
+        self.on_click = Some(Box::new(f));
+        self
+    }
+}
 
-    pub fn show(self, ui: &mut Ui) -> Response {
-        let galley =
-            ui.painter()
-                .layout_no_wrap(self.text.clone(), self.font.clone(), Color32::PLACEHOLDER);
-        let w = match self.width {
-            Some(w) if w.is_infinite() => ui.available_width(),
-            Some(w) => w,
-            None => galley.size().x + 2.0 * self.pad.x,
-        };
-        let h = (galley.size().y + 2.0 * self.pad.y).max(self.min_h);
-        let sense = if self.disabled {
-            Sense::hover()
-        } else {
-            Sense::click()
-        };
-        let (rect, mut resp) = ui.allocate_exact_size(vec2(w, h), sense);
-        let hovered = !self.disabled && resp.hovered();
-        // Hover state fades in/out; explicit hover colours win, otherwise text brightens, a
-        // transparent background gets a faint wash and borders move towards the text colour.
-        let t = if self.disabled {
-            0.0
-        } else {
-            ui.ctx()
-                .animate_bool_with_time(resp.id, hovered, HOVER_ANIM)
-        };
+impl RenderOnce for Btn {
+    fn render(self, _: &mut Window, _: &mut App) -> impl IntoElement {
         let hover_fg = self.hover_fg.unwrap_or_else(|| emphasize(self.fg, 0.6));
         let hover_bg = self.hover_bg.unwrap_or_else(|| {
-            if self.bg.a() == 0 {
+            if self.bg.a == 0.0 {
                 hover_wash(self.fg)
             } else {
                 emphasize(self.bg, 0.5)
             }
         });
         let hover_border = self.hover_border.unwrap_or_else(|| {
-            if self.border.a() == 0 {
-                Color32::TRANSPARENT
+            if self.border.a == 0.0 {
+                TRANSPARENT
             } else {
                 lerp(self.border, self.fg, 0.5)
             }
         });
-        let mut fg = lerp(self.fg, hover_fg, t);
-        let mut bg = lerp(self.bg, hover_bg, t);
-        let border = lerp(self.border, hover_border, t);
-        if hovered && resp.is_pointer_button_down_on() {
-            // Press: dip halfway back towards the resting colours.
-            fg = lerp(fg, self.fg, 0.5);
-            bg = lerp(bg, self.bg, 0.5);
-        }
-        if ui.is_rect_visible(rect) {
-            let p = ui.painter();
-            let stroke = if border.a() == 0 {
-                Stroke::NONE
-            } else {
-                Stroke::new(1.0, op(border, self.opacity))
-            };
-            p.rect(
-                rect,
-                CornerRadius::same(self.radius),
-                op(bg, self.opacity),
-                stroke,
-                StrokeKind::Inside,
-            );
-            let pos = match self.align {
-                Align::Min => pos2(
-                    rect.left() + self.pad.x,
-                    rect.center().y - galley.size().y / 2.0,
-                ),
-                _ => rect.center() - galley.size() / 2.0,
-            };
-            p.galley(pos, galley, op(fg, self.opacity));
-        }
-        if !self.disabled {
-            resp = resp.on_hover_cursor(CursorIcon::PointingHand);
-        }
-        resp
+        let o = self.opacity;
+        div()
+            .id(self.id)
+            .flex()
+            .flex_none()
+            .items_center()
+            .when(self.align_left, |d| d.justify_start())
+            .when(!self.align_left, |d| d.justify_center())
+            .when(self.full_width, |d| d.w_full())
+            .px(px(self.pad.0))
+            .py(px(self.pad.1))
+            .when(self.min_h > 0.0, |d| d.min_h(px(self.min_h)))
+            .rounded(px(self.radius))
+            .bg(op(self.bg, o))
+            .border_1()
+            .border_color(op(self.border, o))
+            .font_family(self.family)
+            .font_weight(self.weight)
+            .text_size(px(self.size))
+            .text_color(op(self.fg, o))
+            .whitespace_nowrap()
+            .child(self.text)
+            .when(!self.disabled, |d| {
+                d.cursor_pointer()
+                    .hover(|s| {
+                        s.bg(op(hover_bg, o))
+                            .border_color(op(hover_border, o))
+                            .text_color(op(hover_fg, o))
+                    })
+                    .active(|s| {
+                        s.bg(op(lerp(hover_bg, self.bg, 0.5), o))
+                            .text_color(op(lerp(hover_fg, self.fg, 0.5), o))
+                    })
+            })
+            .when_some(self.on_click.filter(|_| !self.disabled), |d, f| {
+                d.on_click(move |ev, window, cx| {
+                    cx.stop_propagation();
+                    f(ev, window, cx)
+                })
+            })
     }
 }
 
 // ---------------------------------------------------------------------------
 // Icon buttons
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Icon {
-    /// Two overlapping squares.
-    Copy,
-    /// A check mark (shown while a copy is fresh).
-    Check,
-    /// A small ×.
-    Close,
-    /// Five-point star, filled (favorite) or outlined.
-    Star { filled: bool },
-}
-
-/// Small bordered button showing a painted icon (same footprint as the design's `Copy` chip).
+/// Small 26×20 chip with a lucide icon (copy / check / close / star).
+#[derive(IntoElement)]
 pub struct IconBtn {
+    id: ElementId,
     icon: Icon,
-    fg: Color32,
-    border: Color32,
-    hover_fg: Option<Color32>,
-    hover_border: Option<Color32>,
+    fg: Rgba,
+    border: Rgba,
+    hover_fg: Option<Rgba>,
+    hover_border: Option<Rgba>,
     opacity: f32,
-    tooltip: Option<String>,
+    tooltip: Option<SharedString>,
     height: f32,
+    on_click: Option<ClickHandler>,
 }
 
 impl IconBtn {
-    pub fn new(icon: Icon) -> Self {
+    pub fn new(id: impl Into<ElementId>, icon: impl Into<Icon>) -> Self {
         Self {
-            icon,
+            id: id.into(),
+            icon: icon.into(),
             fg: FG,
-            border: Color32::TRANSPARENT,
+            border: TRANSPARENT,
             hover_fg: None,
             hover_border: None,
             opacity: 1.0,
             tooltip: None,
             height: 20.0,
+            on_click: None,
         }
     }
-    pub fn fg(mut self, c: Color32) -> Self {
+    pub fn fg(mut self, c: Rgba) -> Self {
         self.fg = c;
         self
     }
-    pub fn border(mut self, c: Color32) -> Self {
+    pub fn border(mut self, c: Rgba) -> Self {
         self.border = c;
         self
     }
-    /// Hit area / row height (the icon stays centred). Match the tallest sibling when the
-    /// button is the first item of a horizontal row, so it is centred on the final row height.
-    pub fn height(mut self, h: f32) -> Self {
-        self.height = h.max(20.0);
-        self
-    }
-    pub fn hover_fg(mut self, c: Color32) -> Self {
+    pub fn hover_fg(mut self, c: Rgba) -> Self {
         self.hover_fg = Some(c);
         self
     }
-    pub fn hover_border(mut self, c: Color32) -> Self {
+    pub fn hover_border(mut self, c: Rgba) -> Self {
         self.hover_border = Some(c);
         self
     }
@@ -474,131 +403,102 @@ impl IconBtn {
         self.opacity = o;
         self
     }
-    pub fn tooltip(mut self, text: impl Into<String>) -> Self {
+    pub fn tooltip(mut self, text: impl Into<SharedString>) -> Self {
         self.tooltip = Some(text.into());
         self
     }
+    pub fn on_click(mut self, f: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static) -> Self {
+        self.on_click = Some(Box::new(f));
+        self
+    }
+}
 
-    pub fn show(self, ui: &mut Ui) -> Response {
-        let (hit, resp) = ui.allocate_exact_size(vec2(26.0, self.height), Sense::click());
-        // The painted chip keeps its 26×20 footprint inside the (possibly taller) hit area.
-        let rect = Rect::from_center_size(hit.center(), vec2(26.0, 20.0));
-        let hovered = resp.hovered();
-        let t = ui
-            .ctx()
-            .animate_bool_with_time(resp.id, hovered, HOVER_ANIM);
+impl RenderOnce for IconBtn {
+    fn render(self, _: &mut Window, _: &mut App) -> impl IntoElement {
         let hover_fg = self.hover_fg.unwrap_or_else(|| emphasize(self.fg, 0.6));
         let hover_border = self.hover_border.unwrap_or_else(|| {
-            if self.border.a() == 0 {
-                Color32::TRANSPARENT
+            if self.border.a == 0.0 {
+                TRANSPARENT
             } else {
                 lerp(self.border, self.fg, 0.5)
             }
         });
-        let mut fg = op(lerp(self.fg, hover_fg, t), self.opacity);
-        if hovered && resp.is_pointer_button_down_on() {
-            fg = lerp(fg, op(self.fg, self.opacity), 0.5);
-        }
-        let border = lerp(self.border, hover_border, t);
-        let wash = lerp(Color32::TRANSPARENT, hover_wash(self.fg), t);
-        if ui.is_rect_visible(rect) {
-            let p = ui.painter();
-            if wash.a() > 0 {
-                p.rect_filled(rect, CornerRadius::same(5), op(wash, self.opacity));
-            }
-            if border.a() != 0 {
-                p.rect_stroke(
-                    rect,
-                    CornerRadius::same(5),
-                    Stroke::new(1.0, op(border, self.opacity)),
-                    StrokeKind::Inside,
-                );
-            }
-            let c = rect.center();
-            let stroke = Stroke::new(1.3, fg);
-            match self.icon {
-                Icon::Copy => {
-                    // Front square, fully drawn.
-                    let front = Rect::from_center_size(c + vec2(1.5, 1.5), vec2(7.5, 7.5));
-                    p.rect_stroke(front, CornerRadius::same(1), stroke, StrokeKind::Middle);
-                    // Back square: only its top and left edges, stopping short of the front one.
-                    let back = Rect::from_center_size(c - vec2(1.5, 1.5), vec2(7.5, 7.5));
-                    p.line_segment([back.left_bottom(), back.left_top()], stroke);
-                    p.line_segment([back.left_top(), back.right_top()], stroke);
-                }
-                Icon::Check => {
-                    let pts = [
-                        c + vec2(-4.5, 0.0),
-                        c + vec2(-1.5, 3.0),
-                        c + vec2(4.5, -3.5),
-                    ];
-                    p.line_segment([pts[0], pts[1]], stroke);
-                    p.line_segment([pts[1], pts[2]], stroke);
-                }
-                Icon::Close => {
-                    p.line_segment([c + vec2(-3.5, -3.5), c + vec2(3.5, 3.5)], stroke);
-                    p.line_segment([c + vec2(-3.5, 3.5), c + vec2(3.5, -3.5)], stroke);
-                }
-                Icon::Star { filled } => {
-                    // Ten points alternating outer/inner radius, first point straight up.
-                    let (outer, inner) = (7.0, 3.0);
-                    let pts: Vec<Pos2> = (0..10)
-                        .map(|i| {
-                            let r = if i % 2 == 0 { outer } else { inner };
-                            let a = -std::f32::consts::FRAC_PI_2
-                                + i as f32 * std::f32::consts::PI / 5.0;
-                            c + vec2(a.cos(), a.sin()) * r
-                        })
-                        .collect();
-                    if filled {
-                        // The star is star-shaped around its centre, so a fan from the centre fills it.
-                        let mut mesh = Mesh::default();
-                        mesh.colored_vertex(c, fg);
-                        for pt in &pts {
-                            mesh.colored_vertex(*pt, fg);
-                        }
-                        for i in 0..10u32 {
-                            mesh.add_triangle(0, 1 + i, 1 + (i + 1) % 10);
-                        }
-                        p.add(Shape::mesh(mesh));
-                    }
-                    // Stroked outline: gives the fill anti-aliased edges, or draws the hollow star.
-                    p.add(Shape::closed_line(pts, Stroke::new(1.2, fg)));
-                }
-            }
-        }
-        let resp = resp.on_hover_cursor(CursorIcon::PointingHand);
-        match self.tooltip {
-            Some(t) => resp.on_hover_text(t),
-            None => resp,
-        }
+        let o = self.opacity;
+        let wash = hover_wash(self.fg);
+        div()
+            .id(self.id)
+            .flex_none()
+            .h(px(self.height))
+            .flex()
+            .items_center()
+            .child(
+                div()
+                    .w(px(26.0))
+                    .h(px(20.0))
+                    .rounded(px(5.0))
+                    .border_1()
+                    .border_color(op(self.border, o))
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    .text_color(op(self.fg, o))
+                    .group_hover(ICON_BTN_GROUP, |s| {
+                        s.bg(op(wash, o))
+                            .border_color(op(hover_border, o))
+                            .text_color(op(hover_fg, o))
+                    })
+                    .child(self.icon.size(px(13.0))),
+            )
+            .group(ICON_BTN_GROUP)
+            .cursor_pointer()
+            .when_some(self.tooltip, |d, text| {
+                d.tooltip(move |window, cx| {
+                    gpui_component::tooltip::Tooltip::new(text.clone()).build(window, cx)
+                })
+            })
+            .when_some(self.on_click, |d, f| {
+                d.on_click(move |ev, window, cx| {
+                    cx.stop_propagation();
+                    f(ev, window, cx)
+                })
+            })
     }
 }
+
+/// Five-point star: filled (favorited, `assets/icons/star-filled.svg`) or lucide outline.
+pub fn star_icon(filled: bool) -> Icon {
+    if filled {
+        Icon::default().path("icons/star-filled.svg")
+    } else {
+        Icon::new(IconName::Star)
+    }
+}
+
+const ICON_BTN_GROUP: &str = "icon-btn";
 
 // ---------------------------------------------------------------------------
 // Clickable rows
 
+#[derive(Clone)]
 pub struct RowStyle {
-    pub fill: Color32,
-    pub border: Color32,
-    pub radius: u8,
-    pub pad: Vec2,
+    pub fill: Rgba,
+    pub border: Rgba,
+    pub radius: f32,
+    pub pad_x: f32,
     pub gap: f32,
-    pub width: Option<f32>,
     pub opacity: f32,
     pub clickable: bool,
 }
 
 impl RowStyle {
-    /// The design's `rowBase`: `#101012` fill, 10 % border, radius 9, padding 13/16, gap 12.
+    /// The design's `rowBase`: `#101012` fill, 10 % border, radius 9, padding 16, gap 12.
     pub fn base() -> Self {
         Self {
             fill: ROW_BG,
             border: white(0.1),
-            radius: 9,
-            pad: vec2(16.0, 13.0),
+            radius: 9.0,
+            pad_x: 16.0,
             gap: 12.0,
-            width: None,
             opacity: 1.0,
             clickable: true,
         }
@@ -613,32 +513,28 @@ impl RowStyle {
         }
     }
 
-    pub fn pad(mut self, x: f32, y: f32) -> Self {
-        self.pad = vec2(x, y);
+    pub fn fill(mut self, c: Rgba) -> Self {
+        self.fill = c;
         self
     }
-    pub fn radius(mut self, r: u8) -> Self {
+    pub fn border(mut self, c: Rgba) -> Self {
+        self.border = c;
+        self
+    }
+    pub fn radius(mut self, r: f32) -> Self {
         self.radius = r;
+        self
+    }
+    pub fn pad_x(mut self, x: f32) -> Self {
+        self.pad_x = x;
         self
     }
     pub fn gap(mut self, g: f32) -> Self {
         self.gap = g;
         self
     }
-    pub fn width(mut self, w: f32) -> Self {
-        self.width = Some(w);
-        self
-    }
     pub fn opacity(mut self, o: f32) -> Self {
         self.opacity = o;
-        self
-    }
-    pub fn fill(mut self, c: Color32) -> Self {
-        self.fill = c;
-        self
-    }
-    pub fn border(mut self, c: Color32) -> Self {
-        self.border = c;
         self
     }
     pub fn clickable(mut self, c: bool) -> Self {
@@ -647,138 +543,36 @@ impl RowStyle {
     }
 }
 
-/// A fixed-height row that is itself clickable but may contain buttons.
-///
-/// The row's interaction is registered *before* the children so inner buttons
-/// win the click (egui gives ties to the last registered widget).
-pub fn clickable_row<R>(
-    ui: &mut Ui,
-    salt: impl Hash + std::fmt::Debug,
-    height: f32,
-    style: &RowStyle,
-    content: impl FnOnce(&mut Ui) -> R,
-) -> (Response, R) {
-    clickable_row_with(ui, salt, height, style, |ui, _hover| content(ui))
-}
-
-/// [`clickable_row`] whose content closure also receives the row's hover amount (0 → 1, animated),
-/// so children can follow the row's hover state (e.g. brighten their text).
-pub fn clickable_row_with<R>(
-    ui: &mut Ui,
-    salt: impl Hash + std::fmt::Debug,
-    height: f32,
-    style: &RowStyle,
-    content: impl FnOnce(&mut Ui, f32) -> R,
-) -> (Response, R) {
-    let w = style.width.unwrap_or(ui.available_width());
-    let sense = if style.clickable {
-        Sense::click()
+/// A fixed-height row that is itself clickable but may contain buttons. Children can follow
+/// the hover state with `.group_hover(ROW_GROUP, …)`. Attach the action with `.on_click(…)`.
+pub fn row(id: impl Into<ElementId>, height: f32, style: &RowStyle) -> Stateful<Div> {
+    let o = style.opacity;
+    let (hover_fill, hover_border) = if lightness(style.fill) >= 0.5 {
+        (lerp(style.fill, WHITE, 0.6), style.border)
     } else {
-        Sense::hover()
-    };
-    let (rect, mut resp) = ui.allocate_exact_size(vec2(w, height), sense);
-    let (mut fill, mut border) = (style.fill, style.border);
-    let mut hover = 0.0;
-    if style.clickable {
-        resp = resp.on_hover_cursor(CursorIcon::PointingHand);
-        // Rows lift slightly on hover: dark rows get the same faint wash as buttons and a
-        // brighter border, light (selected) rows go a touch whiter.
-        let t = ui
-            .ctx()
-            .animate_bool_with_time(resp.id, resp.hovered(), HOVER_ANIM);
-        hover = t;
-        let (hover_fill, hover_border) = if lightness(style.fill) >= 0.5 {
-            (lerp(style.fill, Color32::WHITE, 0.6), style.border)
+        let b = if style.border.a == 0.0 {
+            style.border
         } else {
-            let b = if style.border.a() == 0 {
-                style.border
-            } else {
-                lerp(style.border, white(0.28), 1.0)
-            };
-            (lerp(style.fill, Color32::WHITE, 0.06), b)
+            white(0.28)
         };
-        fill = lerp(style.fill, hover_fill, t);
-        border = lerp(style.border, hover_border, t);
-    }
-    if ui.is_rect_visible(rect) {
-        let stroke = if border.a() == 0 {
-            Stroke::NONE
-        } else {
-            Stroke::new(1.0, op(border, style.opacity))
-        };
-        ui.painter().rect(
-            rect,
-            CornerRadius::same(style.radius),
-            op(fill, style.opacity),
-            stroke,
-            StrokeKind::Inside,
-        );
-    }
-    let inner = Rect::from_min_max(rect.min + style.pad, rect.max - style.pad);
-    let mut child = ui.new_child(
-        UiBuilder::new()
-            .id_salt(salt)
-            .max_rect(inner)
-            .layout(Layout::left_to_right(Align::Center)),
-    );
-    child.spacing_mut().item_spacing = vec2(style.gap, 0.0);
-    let r = content(&mut child, hover);
-    (resp, r)
-}
-
-// ---------------------------------------------------------------------------
-// Text input
-
-pub struct InputStyle {
-    pub bg: Color32,
-    pub border: Color32,
-    pub focus_border: Color32,
-    pub radius: u8,
-    pub pad: Vec2,
-}
-
-pub fn input(
-    ui: &mut Ui,
-    id: Id,
-    text: &mut String,
-    hint: &str,
-    font: FontId,
-    style: InputStyle,
-) -> Response {
-    let focused = ui.memory(|m| m.has_focus(id));
-    let border = if focused {
-        style.focus_border
-    } else {
-        style.border
+        (lerp(style.fill, WHITE, 0.06), b)
     };
-    Frame::new()
-        .fill(style.bg)
-        .stroke(Stroke::new(1.0, border))
-        .corner_radius(CornerRadius::same(style.radius))
-        .inner_margin(Margin {
-            left: style.pad.x as i8,
-            right: style.pad.x as i8,
-            top: style.pad.y as i8,
-            bottom: style.pad.y as i8,
+    div()
+        .id(id)
+        .group(ROW_GROUP)
+        .w_full()
+        .h(px(height))
+        .px(px(style.pad_x))
+        .rounded(px(style.radius))
+        .bg(op(style.fill, o))
+        .border_1()
+        .border_color(op(style.border, o))
+        .flex()
+        .flex_row()
+        .items_center()
+        .gap(px(style.gap))
+        .when(style.clickable, |d| {
+            d.cursor_pointer()
+                .hover(move |s| s.bg(op(hover_fill, o)).border_color(op(hover_border, o)))
         })
-        .show(ui, |ui| {
-            ui.add(
-                TextEdit::singleline(text)
-                    .id(id)
-                    .frame(Frame::NONE)
-                    .background_color(Color32::TRANSPARENT)
-                    .hint_text(RichText::new(hint).font(font.clone()).color(white(0.3)))
-                    .font(font)
-                    .text_color(FG)
-                    .desired_width(f32::INFINITY)
-                    .margin(Margin::same(0))
-                    .vertical_align(Align::Center),
-            )
-        })
-        .inner
-}
-
-/// Height an `input()` with the given font and vertical padding will occupy.
-pub fn input_height(ui: &Ui, font: &FontId, pad_y: f32) -> f32 {
-    line_h(ui, font) + 2.0 * pad_y + 2.0
 }

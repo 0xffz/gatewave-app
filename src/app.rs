@@ -245,9 +245,6 @@ pub struct App {
     clipboard: Option<String>,
     /// Set when a received code should be announced with the chime; drained by the frame loop.
     chime: bool,
-    /// Floating developer panel (F12), debug builds only.
-    #[cfg(debug_assertions)]
-    pub debug: crate::ui::debug::DebugPanel,
 }
 
 const SNACK_TTL: Duration = Duration::from_millis(4200);
@@ -266,11 +263,12 @@ const CANCEL_GRACE: Duration = Duration::from_secs(120);
 
 impl App {
     /// Production constructor: loads the config, seeds keys from the environment and connects
-    /// every configured provider over real HTTP.
-    pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
+    /// every configured provider over real HTTP. `wake` is invoked from worker threads when a
+    /// result is ready, so the UI can tick immediately.
+    pub fn new(wake: Option<crate::worker::Wake>) -> Self {
         let mut config = Config::load();
         let seeded = config.seed_keys_from_env();
-        let (worker, rx) = Worker::threaded(Some(cc.egui_ctx.clone()));
+        let (worker, rx) = Worker::threaded(wake);
         let mut app = Self::with_parts(
             config,
             worker,
@@ -336,8 +334,6 @@ impl App {
             copied_token: 0,
             clipboard: None,
             chime: false,
-            #[cfg(debug_assertions)]
-            debug: Default::default(),
         };
         app.start();
         app
@@ -453,6 +449,21 @@ impl App {
 
     pub fn next_deadline(&self) -> Option<Instant> {
         self.timers.next_due()
+    }
+
+    /// How long the UI event pump may sleep before the next [`App::tick`]; `None` means
+    /// nothing is pending — wait for a worker wake-up. Mirrors the egui repaint policy:
+    /// ~30 fps while something animates, otherwise the next timer deadline.
+    pub fn wake_delay(&self, now: Instant) -> Option<Duration> {
+        if self.busy() {
+            Some(Duration::from_millis(33))
+        } else {
+            self.next_deadline().map(|deadline| {
+                deadline
+                    .saturating_duration_since(now)
+                    .max(Duration::from_millis(16))
+            })
+        }
     }
 
     fn next_token(&mut self) -> u64 {
@@ -2459,5 +2470,32 @@ mod tests {
         assert_eq!(app.provider_rows().len(), 4);
         app.apply(Action::SetSearch("sim".into()));
         assert_eq!(app.provider_rows().len(), 1);
+    }
+
+    /// Port of the egui repaint tests: the pump keeps ticking while something animates …
+    #[test]
+    fn pump_ticks_while_waiting() {
+        let (mut app, _, _) = hero_app();
+        app.walk_to_offer(ProviderKind::HeroSms);
+        app.apply(Action::RequestNumber);
+        app.tick();
+        let delay = app.wake_delay(Instant::now());
+        assert!(
+            delay.is_some_and(|d| d <= Duration::from_millis(50)),
+            "waiting number keeps the pump hot: {delay:?}"
+        );
+    }
+
+    /// … and sleeps (or parks entirely) when nothing moves.
+    #[test]
+    fn idle_pump_does_not_spin() {
+        let (mut app, _, _) = hero_app();
+        app.fast_forward(Duration::from_secs(30));
+        assert!(!app.busy());
+        let delay = app.wake_delay(Instant::now());
+        assert!(
+            delay.is_none_or(|d| d > Duration::from_millis(100)),
+            "idle app must not spin: {delay:?}"
+        );
     }
 }
