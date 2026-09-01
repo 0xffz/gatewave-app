@@ -330,16 +330,14 @@ impl RenderOnce for Btn {
             .whitespace_nowrap()
             .child(self.text)
             .when(!self.disabled, |d| {
-                d.cursor_pointer()
-                    .hover(|s| {
-                        s.bg(op(hover_bg, o))
-                            .border_color(op(hover_border, o))
-                            .text_color(op(hover_fg, o))
-                    })
-                    .active(|s| {
-                        s.bg(op(lerp(hover_bg, self.bg, 0.5), o))
-                            .text_color(op(lerp(hover_fg, self.fg, 0.5), o))
-                    })
+                // No `.active(…)` press style: a pressed-state StyleRefinement makes the
+                // element re-lay out one pixel shorter while held (gpui 0.2.2), shifting
+                // everything below it. The hover style carries the pressed look instead.
+                d.cursor_pointer().hover(|s| {
+                    s.bg(op(hover_bg, o))
+                        .border_color(op(hover_border, o))
+                        .text_color(op(hover_fg, o))
+                })
             })
             .when_some(self.on_click.filter(|_| !self.disabled), |d, f| {
                 d.on_click(move |ev, window, cx| {
